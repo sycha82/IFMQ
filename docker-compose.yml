@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # wcs-app:
+  #   build: ./wcs-app
+  #   container_name: wcs-app
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     RABBITMQ_HOST: rabbitmq
+  #     RABBITMQ_PORT: 5672
+  #     RABBITMQ_USERNAME: guest
+  #     RABBITMQ_PASSWORD: guest
+  #   depends_on:
+  #     rabbitmq:
+  #       condition: service_healthy
+
+volumes:
+  rabbitmq_data:

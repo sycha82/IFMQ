@@ -1,0 +1,20 @@
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: /
+
+wcs:
+  rabbitmq:
+    exchange: wcs.topic
+    queue:
+      inbound-cmd: wcs.queue.inbound.cmd
+    routing-key:
+      inbound-cmd: wms.inbound.cmd
+      inbound-complete: wcs.inbound.complete
+
+logging:
+  level:
+    com.example.wcsapp: DEBUG
