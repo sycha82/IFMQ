@@ -2,16 +2,13 @@ package com.example.wmsmock.cli;
 
 import com.example.common.dto.InboundCmdDto;
 import com.example.wmsmock.producer.InboundCmdPublisher;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Scanner;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
@@ -19,7 +16,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class WmsCliRunner implements CommandLineRunner {
 
     private final InboundCmdPublisher inboundCmdPublisher;
-    private final AtomicInteger seq = new AtomicInteger(1);
+    private final ObjectMapper objectMapper;
+
+    private static final String DEFAULT_INBOUND_CMD = """
+            {
+              "messageType": "INBOUND_CMD",
+              "messageId": "MSG-20260422-0000",
+              "refMessageId": null,
+              "sequenceNo": 999,
+              "timestamp": "2026-04-22T08:50:00",
+              "taskId": "WMS-IN-20260422-001",
+              "palletId": "PLT-20260422-001",
+              "itemCode": "ITEM-20260422-001",
+              "lotId": "LOT-20260422-001",
+              "qty": 24,
+              "expireDate": "2027-04-22"
+            }""";
 
     @Override
     public void run(String... args) {
@@ -52,39 +64,19 @@ public class WmsCliRunner implements CommandLineRunner {
     }
 
     private void sendInboundCmd(Scanner scanner) {
-        System.out.println("\n[INBOUND_CMD 메시지 입력]");
+        System.out.println("\n[INBOUND_CMD] JSON 입력 (Enter만 치면 기본값 사용):");
+        System.out.println(DEFAULT_INBOUND_CMD);
+        System.out.print("> ");
 
-        String taskId     = prompt(scanner, "taskId",     "WMS-IN-20260422-001");
-        String palletId   = prompt(scanner, "palletId",   "PLT-20260422-001");
-        String itemCode   = prompt(scanner, "itemCode",   "ITEM-20260422-001");
-        String lotId      = prompt(scanner, "lotId",      "LOT-20260422-001");
-        int    qty        = Integer.parseInt(prompt(scanner, "qty", "1"));
-        String expireStr  = prompt(scanner, "expireDate (yyyy-MM-dd, 없으면 Enter)", "");
-
-        InboundCmdDto dto = InboundCmdDto.builder()
-                .messageType("INBOUND_CMD")
-                .messageId("MSG-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .sequenceNo(seq.getAndIncrement())
-                .timestamp(LocalDateTime.now())
-                .taskId(taskId)
-                .palletId(palletId)
-                .itemCode(itemCode)
-                .lotId(lotId)
-                .qty(qty)
-                .expireDate(expireStr.isEmpty() ? null : LocalDate.parse(expireStr))
-                .build();
+        String input = scanner.nextLine().trim();
+        String json = input.isEmpty() ? DEFAULT_INBOUND_CMD : input;
 
         try {
+            InboundCmdDto dto = objectMapper.readValue(json, InboundCmdDto.class);
             inboundCmdPublisher.send(dto);
             System.out.println("발행 완료. messageId=" + dto.getMessageId());
         } catch (Exception e) {
-            System.out.println("발행 실패: " + e.getMessage());
+            System.out.println("오류: " + e.getMessage());
         }
-    }
-
-    private String prompt(Scanner scanner, String field, String defaultValue) {
-        System.out.printf("  %-40s [%s] > ", field, defaultValue);
-        String input = scanner.nextLine().trim();
-        return input.isEmpty() ? defaultValue : input;
     }
 }

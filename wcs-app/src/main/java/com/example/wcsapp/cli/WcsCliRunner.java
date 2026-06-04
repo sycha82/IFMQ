@@ -2,15 +2,13 @@ package com.example.wcsapp.cli;
 
 import com.example.common.dto.InboundCompleteDto;
 import com.example.wcsapp.producer.InboundCompleteProducer;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.Scanner;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
@@ -18,7 +16,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class WcsCliRunner implements CommandLineRunner {
 
     private final InboundCompleteProducer inboundCompleteProducer;
-    private final AtomicInteger seq = new AtomicInteger(1);
+    private final ObjectMapper objectMapper;
+
+    private static final String DEFAULT_INBOUND_COMPLETE = """
+            {
+              "messageType": "INBOUND_COMPLETE",
+              "messageId": "MSG-20260422-0007",
+              "refMessageId": null,
+              "sequenceNo": 1006,
+              "timestamp": "2026-04-22T09:05:32",
+              "taskId": "WMS-IN-20260422-001",
+              "palletId": "PLT-20260422-001",
+              "itemCode": "ITEM-20260422-001",
+              "lotId": "LOT-20260422-001",
+              "qty": 24,
+              "status": "COMPLETED",
+              "message": ""
+            }""";
 
     @Override
     public void run(String... args) {
@@ -50,41 +64,19 @@ public class WcsCliRunner implements CommandLineRunner {
     }
 
     private void sendInboundComplete(Scanner scanner) {
-        System.out.println("\n[INBOUND_COMPLETE 메시지 입력]");
+        System.out.println("\n[INBOUND_COMPLETE] JSON 입력 (Enter만 치면 기본값 사용):");
+        System.out.println(DEFAULT_INBOUND_COMPLETE);
+        System.out.print("> ");
 
-        String taskId    = prompt(scanner, "taskId",   "WMS-IN-20260422-001");
-        String palletId  = prompt(scanner, "palletId", "PLT-20260422-001");
-        String itemCode  = prompt(scanner, "itemCode", "ITEM-20260422-001");
-        String lotId     = prompt(scanner, "lotId",    "LOT-20260422-001");
-        int    qty       = Integer.parseInt(prompt(scanner, "qty", "1"));
-        String status    = prompt(scanner, "status (COMPLETED/FAILED)", "COMPLETED");
-        String message   = prompt(scanner, "message", "");
-
-        InboundCompleteDto dto = InboundCompleteDto.builder()
-                .messageType("INBOUND_COMPLETE")
-                .messageId("MSG-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
-                .sequenceNo(seq.getAndIncrement())
-                .timestamp(LocalDateTime.now())
-                .taskId(taskId)
-                .palletId(palletId)
-                .itemCode(itemCode)
-                .lotId(lotId)
-                .qty(qty)
-                .status(status)
-                .message(message)
-                .build();
+        String input = scanner.nextLine().trim();
+        String json = input.isEmpty() ? DEFAULT_INBOUND_COMPLETE : input;
 
         try {
+            InboundCompleteDto dto = objectMapper.readValue(json, InboundCompleteDto.class);
             inboundCompleteProducer.send(dto);
             System.out.println("발행 완료. messageId=" + dto.getMessageId() + " (DB 로그 기록됨)");
         } catch (Exception e) {
-            System.out.println("발행 실패: " + e.getMessage());
+            System.out.println("오류: " + e.getMessage());
         }
-    }
-
-    private String prompt(Scanner scanner, String field, String defaultValue) {
-        System.out.printf("  %-35s [%s] > ", field, defaultValue);
-        String input = scanner.nextLine().trim();
-        return input.isEmpty() ? defaultValue : input;
     }
 }
