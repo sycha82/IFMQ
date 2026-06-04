@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.wcsapp.db.IfMsgLogMapper">
+
+    <insert id="insert" parameterType="com.example.wcsapp.db.IfMsgLog"
+            useGeneratedKeys="true" keyProperty="logId">
+        INSERT INTO inf.if_msg_log (
+            direction,
+            message_type,
+            message_id,
+            ref_message_id,
+            sequence_no,
+            msg_timestamp,
+            routing_key,
+            queue_name,
+            payload,
+            status,
+            error_msg,
+            processed_at
+        ) VALUES (
+            #{direction},
+            #{messageType},
+            #{messageId},
+            #{refMessageId},
+            #{sequenceNo},
+            #{msgTimestamp},
+            #{routingKey},
+            #{queueName},
+            #{payload}::jsonb,
+            #{status},
+            #{errorMsg},
+            #{processedAt}
+        )
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE inf.if_msg_log
+        SET
+            status       = #{status},
+            error_msg    = #{errorMsg},
+            processed_at = #{processedAt}
+        WHERE log_id = #{logId}
+    </update>
+
+</mapper>
