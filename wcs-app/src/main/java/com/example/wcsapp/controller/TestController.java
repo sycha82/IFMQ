@@ -1,7 +1,7 @@
 package com.example.wcsapp.controller;
 
-import com.example.wcsapp.dto.InboundCmdDto;
-import com.example.wcsapp.dto.InboundCompleteDto;
+import com.example.common.dto.InboundCmdDto;
+import com.example.common.dto.InboundCompleteDto;
 import com.example.wcsapp.producer.InboundCmdProducer;
 import com.example.wcsapp.producer.InboundCompleteProducer;
 import lombok.RequiredArgsConstructor;

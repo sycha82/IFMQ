@@ -1,7 +1,7 @@
 package com.example.wcsapp.producer;
 
 import com.example.wcsapp.config.RabbitMQProperties;
-import com.example.wcsapp.dto.InboundCompleteDto;
+import com.example.common.dto.InboundCompleteDto;
 import com.example.wcsapp.service.MsgLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

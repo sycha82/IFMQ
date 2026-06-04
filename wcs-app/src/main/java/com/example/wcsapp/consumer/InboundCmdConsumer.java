@@ -1,7 +1,7 @@
 package com.example.wcsapp.consumer;
 
 import com.example.wcsapp.config.RabbitMQProperties;
-import com.example.wcsapp.dto.InboundCmdDto;
+import com.example.common.dto.InboundCmdDto;
 import com.example.wcsapp.service.MsgLogService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +34,7 @@ public class InboundCmdConsumer {
             // 3. 완료 → COMPLETED
             msgLogService.updateCompleted(logId);
             log.info("[CONSUMER] INBOUND_CMD completed | messageId={} logId={}", dto.getMessageId(), logId);
+            printReceived(dto);
 
         } catch (Exception e) {
             // 4. 실패 → FAILED
@@ -48,5 +49,18 @@ public class InboundCmdConsumer {
                 dto.getTaskId(), dto.getPalletId(), dto.getItemCode(),
                 dto.getLotId(), dto.getQty(), dto.getExpireDate());
         // TODO: 실제 비즈니스 로직 구현
+    }
+
+    private void printReceived(InboundCmdDto dto) {
+        System.out.println("\n[WCS 수신] INBOUND_CMD");
+        System.out.println("  messageId : " + dto.getMessageId());
+        System.out.println("  taskId    : " + dto.getTaskId());
+        System.out.println("  palletId  : " + dto.getPalletId());
+        System.out.println("  itemCode  : " + dto.getItemCode());
+        System.out.println("  lotId     : " + dto.getLotId());
+        System.out.println("  qty       : " + dto.getQty());
+        System.out.println("  expireDate: " + dto.getExpireDate());
+        System.out.println("  timestamp : " + dto.getTimestamp());
+        System.out.print("선택 > ");
     }
 }

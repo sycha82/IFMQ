@@ -2,7 +2,7 @@ package com.example.wcsapp.service;
 
 import com.example.wcsapp.db.IfMsgLog;
 import com.example.wcsapp.db.IfMsgLogMapper;
-import com.example.wcsapp.dto.WcsMessageBase;
+import com.example.common.dto.WcsMessageBase;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
