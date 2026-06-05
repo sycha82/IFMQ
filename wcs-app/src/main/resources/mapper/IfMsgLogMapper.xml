@@ -35,6 +35,13 @@
         )
     </insert>
 
+    <select id="existsByDirectionAndMessageId" resultType="boolean">
+        SELECT COUNT(1) > 0
+        FROM inf.if_msg_log
+        WHERE direction  = #{direction}
+          AND message_id = #{messageId}
+    </select>
+
     <update id="updateStatus">
         UPDATE inf.if_msg_log
         SET
