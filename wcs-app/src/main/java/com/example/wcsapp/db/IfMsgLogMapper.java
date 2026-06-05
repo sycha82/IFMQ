@@ -14,4 +14,7 @@ public interface IfMsgLogMapper {
                       @Param("status") String status,
                       @Param("errorMsg") String errorMsg,
                       @Param("processedAt") LocalDateTime processedAt);
+
+    boolean existsByDirectionAndMessageId(@Param("direction") String direction,
+                                          @Param("messageId") String messageId);
 }

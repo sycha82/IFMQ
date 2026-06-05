@@ -21,8 +21,12 @@ public class InboundCmdConsumer {
         String queueName = props.getQueue().getInboundCmd();
         String routingKey = props.getRoutingKey().getInboundCmd();
 
-        // 1. 수신 즉시 RECEIVED
+        // 1. 수신 즉시 RECEIVED (중복 메시지면 null 반환 → skip)
         Long logId = msgLogService.insertInbound(dto, queueName, routingKey);
+        if (logId == null) {
+            log.warn("[CONSUMER] INBOUND_CMD duplicate, skipped | messageId={}", dto.getMessageId());
+            return;
+        }
         log.info("[CONSUMER] INBOUND_CMD received | messageId={} logId={}", dto.getMessageId(), logId);
 
         try {

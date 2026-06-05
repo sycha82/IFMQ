@@ -20,9 +20,14 @@ public class MsgLogService {
 
     /**
      * INBOUND 수신 즉시 RECEIVED 상태로 insert.
-     * @return 생성된 logId
+     * 이미 처리된 messageId면 null 반환 (멱등 처리).
+     * @return 생성된 logId, 중복이면 null
      */
     public Long insertInbound(WcsMessageBase dto, String queueName, String routingKey) {
+        if (mapper.existsByDirectionAndMessageId("INBOUND", dto.getMessageId())) {
+            log.warn("중복 메시지 무시 | direction=INBOUND messageId={}", dto.getMessageId());
+            return null;
+        }
         IfMsgLog record = buildBase(dto, "INBOUND", routingKey, queueName, "RECEIVED");
         mapper.insert(record);
         return record.getLogId();
