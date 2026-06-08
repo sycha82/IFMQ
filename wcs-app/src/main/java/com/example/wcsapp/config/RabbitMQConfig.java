@@ -32,8 +32,8 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding inboundCmdBinding(Queue inboundCmdQueue, TopicExchange wcsExchange) {
-        return BindingBuilder.bind(inboundCmdQueue)
+    public Binding inboundCmdBinding(TopicExchange wcsExchange) {
+        return BindingBuilder.bind(inboundCmdQueue())
                 .to(wcsExchange)
                 .with(props.getRoutingKey().getInboundCmd());
     }
@@ -44,8 +44,8 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding inboundCancelBinding(Queue inboundCancelQueue, TopicExchange wcsExchange) {
-        return BindingBuilder.bind(inboundCancelQueue)
+    public Binding inboundCancelBinding(TopicExchange wcsExchange) {
+        return BindingBuilder.bind(inboundCancelQueue())
                 .to(wcsExchange)
                 .with(props.getRoutingKey().getInboundCancel());
     }
