@@ -26,5 +26,6 @@ public class WmsRabbitMQProperties {
     public static class RoutingKey {
         private String inboundCmd;
         private String inboundComplete;
+        private String inboundCancel;
     }
 }

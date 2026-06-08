@@ -39,6 +39,18 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue inboundCancelQueue() {
+        return new Queue(props.getQueue().getInboundCancel(), true);
+    }
+
+    @Bean
+    public Binding inboundCancelBinding(Queue inboundCancelQueue, TopicExchange wcsExchange) {
+        return BindingBuilder.bind(inboundCancelQueue)
+                .to(wcsExchange)
+                .with(props.getRoutingKey().getInboundCancel());
+    }
+
+    @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())

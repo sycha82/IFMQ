@@ -19,6 +19,7 @@ public class RabbitMQProperties {
     @Setter
     public static class Queue {
         private String inboundCmd;
+        private String inboundCancel;
     }
 
     @Getter
@@ -26,5 +27,6 @@ public class RabbitMQProperties {
     public static class RoutingKey {
         private String inboundCmd;
         private String inboundComplete;
+        private String inboundCancel;
     }
 }
