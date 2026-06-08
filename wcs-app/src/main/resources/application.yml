@@ -20,9 +20,11 @@ wcs:
     exchange: wcs.topic
     queue:
       inbound-cmd: wcs.queue.inbound.cmd
+      inbound-cancel: wcs.queue.inbound.cancel
     routing-key:
       inbound-cmd: wms.inbound.cmd
       inbound-complete: wcs.inbound.complete
+      inbound-cancel: wms.inbound.cancel
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
