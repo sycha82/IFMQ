@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsEqpPalletMapHMapper">
+
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsEqpPalletMapH">
+        <id     property="hstSeq"      column="hst_seq"/>
+        <result property="eqpPalletId" column="eqp_pallet_id"/>
+        <result property="cycleNo"     column="cycle_no"/>
+        <result property="taskId"      column="task_id"/>
+        <result property="palletId"    column="pallet_id"/>
+        <result property="mapStatus"   column="map_status"/>
+        <result property="location"    column="location"/>
+        <result property="mappedAt"    column="mapped_at"/>
+        <result property="storedAt"    column="stored_at"/>
+        <result property="eventType"   column="event_type"/>
+        <result property="eventAt"     column="event_at"/>
+        <result property="eventBy"     column="event_by"/>
+        <result property="note"        column="note"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+        <result property="createdBy"   column="created_by"/>
+        <result property="updatedBy"   column="updated_by"/>
+    </resultMap>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_eqp_pallet_map_h
+    </select>
+
+    <select id="findByEqpPalletId" resultMap="rs">
+        SELECT * FROM biz.wcs_eqp_pallet_map_h
+        WHERE eqp_pallet_id = #{eqpPalletId}
+        ORDER BY hst_seq DESC
+    </select>
+
+    <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsEqpPalletMapH"
+            useGeneratedKeys="true" keyProperty="hstSeq">
+        INSERT INTO biz.wcs_eqp_pallet_map_h (
+            eqp_pallet_id, cycle_no, task_id, pallet_id,
+            map_status, location, mapped_at, stored_at,
+            event_type, event_at, event_by, note,
+            created_by, updated_by
+        ) VALUES (
+            #{eqpPalletId}, #{cycleNo}, #{taskId}, #{palletId},
+            #{mapStatus}, #{location}, #{mappedAt}, #{storedAt},
+            #{eventType}, #{eventAt},
+            COALESCE(#{eventBy}, 'SYSTEM'), #{note},
+            COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
+        )
+    </insert>
+
+</mapper>

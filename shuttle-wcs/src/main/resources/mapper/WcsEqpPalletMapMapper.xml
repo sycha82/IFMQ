@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsEqpPalletMapMapper">
+
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsEqpPalletMap">
+        <id     property="eqpPalletId" column="eqp_pallet_id"/>
+        <result property="taskId"      column="task_id"/>
+        <result property="palletId"    column="pallet_id"/>
+        <result property="mapStatus"   column="map_status"/>
+        <result property="location"    column="location"/>
+        <result property="cycleNo"     column="cycle_no"/>
+        <result property="mappedAt"    column="mapped_at"/>
+        <result property="storedAt"    column="stored_at"/>
+        <result property="createdAt"   column="created_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+        <result property="createdBy"   column="created_by"/>
+        <result property="updatedBy"   column="updated_by"/>
+    </resultMap>
+
+    <select id="findById" resultMap="rs">
+        SELECT * FROM biz.wcs_eqp_pallet_map
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </select>
+
+    <select id="findByPalletId" resultMap="rs">
+        SELECT * FROM biz.wcs_eqp_pallet_map
+        WHERE pallet_id = #{palletId}
+        LIMIT 1
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_eqp_pallet_map
+    </select>
+
+    <insert id="insertEmpty">
+        INSERT INTO biz.wcs_eqp_pallet_map (eqp_pallet_id)
+        VALUES (#{eqpPalletId})
+        ON CONFLICT (eqp_pallet_id) DO NOTHING
+    </insert>
+
+    <update id="applyMapping">
+        UPDATE biz.wcs_eqp_pallet_map
+        SET task_id    = #{taskId},
+            pallet_id  = #{palletId},
+            map_status = 'MAPPED',
+            location   = 'STATION',
+            cycle_no   = cycle_no + 1,
+            mapped_at  = #{mappedAt},
+            stored_at  = NULL,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE biz.wcs_eqp_pallet_map
+        SET map_status = #{mapStatus},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+    <update id="updateLocation">
+        UPDATE biz.wcs_eqp_pallet_map
+        SET location   = #{location},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+    <update id="markStored">
+        UPDATE biz.wcs_eqp_pallet_map
+        SET map_status = 'STORED',
+            location   = 'IN_RACK',
+            stored_at  = #{storedAt},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+</mapper>

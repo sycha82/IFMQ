@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsPalletLineHMapper">
+
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsPalletLineH">
+        <id     property="palletId"       column="pallet_id"/>
+        <id     property="effectiveFrom"  column="effective_from"/>
+        <id     property="skuCode"        column="sku_code"/>
+        <id     property="lotId"          column="lot_id"/>
+        <result property="qty"            column="qty"/>
+        <result property="expireDate"     column="expire_date"/>
+        <result property="isLatest"       column="is_latest"/>
+        <result property="effectiveTo"    column="effective_to"/>
+        <result property="supersededBy"   column="superseded_by"/>
+        <result property="createdAt"      column="created_at"/>
+        <result property="updatedAt"      column="updated_at"/>
+        <result property="createdBy"      column="created_by"/>
+        <result property="updatedBy"      column="updated_by"/>
+    </resultMap>
+
+    <!-- 운영 조회는 뷰 경유 -->
+    <select id="findLatestByPalletId" resultMap="rs">
+        SELECT * FROM biz.wcs_vw_pallet_line_h
+        WHERE pallet_id = #{palletId}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_pallet_line_h
+    </select>
+
+    <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsPalletLineH">
+        INSERT INTO biz.wcs_pallet_line_h (
+            pallet_id, effective_from, sku_code, lot_id,
+            qty, expire_date, is_latest, effective_to, superseded_by,
+            created_by, updated_by
+        ) VALUES (
+            #{palletId}, #{effectiveFrom}, #{skuCode}, #{lotId},
+            #{qty}, #{expireDate},
+            COALESCE(#{isLatest}, 'Y'), #{effectiveTo}, #{supersededBy},
+            COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
+        )
+    </insert>
+
+    <!-- 기존 latest 라인 무효화 (재수신 시 새 버전 직전에 호출) -->
+    <update id="supersedeLatest">
+        UPDATE biz.wcs_pallet_line_h
+        SET is_latest     = 'N',
+            effective_to  = #{effectiveTo},
+            superseded_by = #{supersededBy},
+            updated_at    = CURRENT_TIMESTAMP
+        WHERE pallet_id = #{palletId}
+          AND sku_code  = #{skuCode}
+          AND lot_id    = #{lotId}
+          AND is_latest = 'Y'
+    </update>
+
+</mapper>

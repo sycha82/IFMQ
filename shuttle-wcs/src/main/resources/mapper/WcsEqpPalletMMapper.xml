@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsEqpPalletMMapper">
+
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsEqpPalletM">
+        <id     property="eqpPalletId"   column="eqp_pallet_id"/>
+        <result property="eqpPalletNo"   column="eqp_pallet_no"/>
+        <result property="palletStatus"  column="pallet_status"/>
+        <result property="useYn"         column="use_yn"/>
+        <result property="maintReason"   column="maint_reason"/>
+        <result property="registeredAt"  column="registered_at"/>
+        <result property="lastUsedAt"    column="last_used_at"/>
+        <result property="memo"          column="memo"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="updatedAt"     column="updated_at"/>
+        <result property="createdBy"     column="created_by"/>
+        <result property="updatedBy"     column="updated_by"/>
+    </resultMap>
+
+    <select id="findById" resultMap="rs">
+        SELECT * FROM biz.wcs_eqp_pallet_m
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_eqp_pallet_m
+    </select>
+
+    <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsEqpPalletM">
+        INSERT INTO biz.wcs_eqp_pallet_m (
+            eqp_pallet_id, eqp_pallet_no, pallet_status, use_yn, maint_reason,
+            registered_at, last_used_at, memo,
+            created_by, updated_by
+        ) VALUES (
+            #{eqpPalletId}, #{eqpPalletNo},
+            COALESCE(#{palletStatus}, 'EMPTY'),
+            COALESCE(#{useYn}, 'Y'),
+            #{maintReason},
+            #{registeredAt}, #{lastUsedAt}, #{memo},
+            COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
+        )
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE biz.wcs_eqp_pallet_m
+        SET pallet_status = #{palletStatus},
+            maint_reason  = COALESCE(#{maintReason}, maint_reason),
+            updated_at    = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+    <update id="updateLastUsedAt">
+        UPDATE biz.wcs_eqp_pallet_m
+        SET last_used_at = #{lastUsedAt},
+            updated_at   = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+</mapper>
