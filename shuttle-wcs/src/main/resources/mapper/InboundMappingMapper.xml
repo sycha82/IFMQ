@@ -19,19 +19,19 @@
     </resultMap>
 
     <select id="findByEqpPalletId" resultMap="InboundMappingResult">
-        SELECT * FROM biz.inbound_mapping
+        SELECT * FROM biz.wcs_eqp_pallet_mapping_m
         WHERE eqp_pallet_id = #{eqpPalletId}
     </select>
 
     <select id="findByPalletId" resultMap="InboundMappingResult">
-        SELECT * FROM biz.inbound_mapping
+        SELECT * FROM biz.wcs_eqp_pallet_mapping_m
         WHERE pallet_id = #{palletId}
         ORDER BY created_at DESC
         LIMIT 1
     </select>
 
     <select id="countAll" resultType="int">
-        SELECT COUNT(1) FROM biz.inbound_mapping
+        SELECT COUNT(1) FROM biz.wcs_eqp_pallet_mapping_m
     </select>
 
     <!--
@@ -39,7 +39,7 @@
         mapped_at, created_at 은 등록 시점 기록.
     -->
     <insert id="upsertMapping" parameterType="com.example.shuttlewcs.db.InboundMapping">
-        INSERT INTO biz.inbound_mapping (
+        INSERT INTO biz.wcs_eqp_pallet_mapping_m (
             eqp_pallet_id, pallet_id, sku_code, lot_id, qty, expire_date,
             status, wcs_task_id, mapped_at, updated_at, created_at
         ) VALUES (
@@ -59,14 +59,14 @@
     </insert>
 
     <update id="updateStatus">
-        UPDATE biz.inbound_mapping
+        UPDATE biz.wcs_eqp_pallet_mapping_m
         SET status     = #{status},
             updated_at = CURRENT_TIMESTAMP
         WHERE eqp_pallet_id = #{eqpPalletId}
     </update>
 
     <update id="updateWcsTaskId">
-        UPDATE biz.inbound_mapping
+        UPDATE biz.wcs_eqp_pallet_mapping_m
         SET wcs_task_id = #{wcsTaskId},
             status      = #{status},
             updated_at  = CURRENT_TIMESTAMP

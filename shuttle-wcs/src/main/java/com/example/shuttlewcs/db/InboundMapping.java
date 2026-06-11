@@ -19,7 +19,7 @@ public class InboundMapping {
     private String lotId;
     private Integer qty;
     private LocalDate expireDate;
-    private String status;          // PENDING | MAPPED | IN_PROGRESS | STORED
+    private String status;          // MAPPED | IN_PROGRESS | STORED
     private String wcsTaskId;
     private LocalDateTime mappedAt;
     private LocalDateTime updatedAt;

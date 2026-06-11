@@ -6,16 +6,16 @@
 
     <select id="findById" resultType="com.example.shuttlewcs.db.EqpPallet">
         SELECT eqp_pallet_id, status, location, updated_at
-        FROM biz.eqp_pallet
+        FROM biz.wcs_eqp_pallet_m
         WHERE eqp_pallet_id = #{eqpPalletId}
     </select>
 
     <select id="countAll" resultType="int">
-        SELECT COUNT(1) FROM biz.eqp_pallet
+        SELECT COUNT(1) FROM biz.wcs_eqp_pallet_m
     </select>
 
     <insert id="upsert" parameterType="com.example.shuttlewcs.db.EqpPallet">
-        INSERT INTO biz.eqp_pallet (eqp_pallet_id, status, location, updated_at)
+        INSERT INTO biz.wcs_eqp_pallet_m (eqp_pallet_id, status, location, updated_at)
         VALUES (#{eqpPalletId}, #{status}, #{location}, CURRENT_TIMESTAMP)
         ON CONFLICT (eqp_pallet_id) DO UPDATE SET
             status     = EXCLUDED.status,
@@ -24,7 +24,7 @@
     </insert>
 
     <update id="updateLocation">
-        UPDATE biz.eqp_pallet
+        UPDATE biz.wcs_eqp_pallet_m
         SET location   = #{location},
             updated_at = CURRENT_TIMESTAMP
         WHERE eqp_pallet_id = #{eqpPalletId}
