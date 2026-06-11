@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.EqpPalletMapper">
+
+    <select id="findById" resultType="com.example.shuttlewcs.db.EqpPallet">
+        SELECT eqp_pallet_id, status, location, updated_at
+        FROM biz.eqp_pallet
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.eqp_pallet
+    </select>
+
+    <insert id="upsert" parameterType="com.example.shuttlewcs.db.EqpPallet">
+        INSERT INTO biz.eqp_pallet (eqp_pallet_id, status, location, updated_at)
+        VALUES (#{eqpPalletId}, #{status}, #{location}, CURRENT_TIMESTAMP)
+        ON CONFLICT (eqp_pallet_id) DO UPDATE SET
+            status     = EXCLUDED.status,
+            location   = EXCLUDED.location,
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="updateLocation">
+        UPDATE biz.eqp_pallet
+        SET location   = #{location},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+</mapper>

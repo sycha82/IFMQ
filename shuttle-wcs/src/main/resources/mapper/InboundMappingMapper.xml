@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.InboundMappingMapper">
+
+    <resultMap id="InboundMappingResult" type="com.example.shuttlewcs.db.InboundMapping">
+        <id     property="eqpPalletId" column="eqp_pallet_id"/>
+        <result property="palletId"    column="pallet_id"/>
+        <result property="skuCode"     column="sku_code"/>
+        <result property="lotId"       column="lot_id"/>
+        <result property="qty"         column="qty"/>
+        <result property="expireDate"  column="expire_date"/>
+        <result property="status"      column="status"/>
+        <result property="wcsTaskId"   column="wcs_task_id"/>
+        <result property="mappedAt"    column="mapped_at"/>
+        <result property="updatedAt"   column="updated_at"/>
+        <result property="createdAt"   column="created_at"/>
+    </resultMap>
+
+    <select id="findByEqpPalletId" resultMap="InboundMappingResult">
+        SELECT * FROM biz.inbound_mapping
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </select>
+
+    <select id="findByPalletId" resultMap="InboundMappingResult">
+        SELECT * FROM biz.inbound_mapping
+        WHERE pallet_id = #{palletId}
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.inbound_mapping
+    </select>
+
+    <!--
+        PRE03 매핑 등록 (status=MAPPED). EqpPalletId 기준 덮어쓰기 (사이클링 재사용).
+        mapped_at, created_at 은 등록 시점 기록.
+    -->
+    <insert id="upsertMapping" parameterType="com.example.shuttlewcs.db.InboundMapping">
+        INSERT INTO biz.inbound_mapping (
+            eqp_pallet_id, pallet_id, sku_code, lot_id, qty, expire_date,
+            status, wcs_task_id, mapped_at, updated_at, created_at
+        ) VALUES (
+            #{eqpPalletId}, #{palletId}, #{skuCode}, #{lotId}, #{qty}, #{expireDate},
+            #{status}, #{wcsTaskId}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (eqp_pallet_id) DO UPDATE SET
+            pallet_id   = EXCLUDED.pallet_id,
+            sku_code    = EXCLUDED.sku_code,
+            lot_id      = EXCLUDED.lot_id,
+            qty         = EXCLUDED.qty,
+            expire_date = EXCLUDED.expire_date,
+            status      = EXCLUDED.status,
+            wcs_task_id = NULL,
+            mapped_at   = CURRENT_TIMESTAMP,
+            updated_at  = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE biz.inbound_mapping
+        SET status     = #{status},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+    <update id="updateWcsTaskId">
+        UPDATE biz.inbound_mapping
+        SET wcs_task_id = #{wcsTaskId},
+            status      = #{status},
+            updated_at  = CURRENT_TIMESTAMP
+        WHERE eqp_pallet_id = #{eqpPalletId}
+    </update>
+
+</mapper>

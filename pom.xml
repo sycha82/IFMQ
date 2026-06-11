@@ -14,6 +14,7 @@
         <module>common</module>
         <module>wcs-app</module>
         <module>wms-mock</module>
+        <module>shuttle-wcs</module>
     </modules>
 
     <properties>
