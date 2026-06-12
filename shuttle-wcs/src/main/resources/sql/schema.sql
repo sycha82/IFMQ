@@ -64,22 +64,18 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_wcs_pallet_line_h_latest
 
 -- 운영 조회 뷰 : is_latest='Y' 자동 필터. 컬럼 명시 (SELECT * 금지 — 운영상
 -- 베이스 테이블 컬럼 추가/순서변경 시 영향 격리)
-DROP VIEW IF EXISTS biz.wcs_vw_pallet_line_h;
-CREATE VIEW biz.wcs_vw_pallet_line_h AS
+-- is_latest='Y' 필터 하에서는 is_latest 항상 'Y', effective_to/superseded_by
+-- 항상 NULL 이므로 노출 제외. 감사 컬럼(created_by/updated_by)도 업무 조회엔 불필요.
+CREATE OR REPLACE VIEW biz.wcs_vw_pallet_line_h AS
     SELECT
         pallet_id,
-        effective_from,
         sku_code,
         lot_id,
         qty,
         expire_date,
-        is_latest,
-        effective_to,
-        superseded_by,
+        effective_from,
         created_at,
-        updated_at,
-        created_by,
-        updated_by
+        updated_at
     FROM biz.wcs_pallet_line_h
     WHERE is_latest = 'Y';
 
