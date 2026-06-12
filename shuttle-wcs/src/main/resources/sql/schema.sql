@@ -62,9 +62,26 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_wcs_pallet_line_h_latest
     ON biz.wcs_pallet_line_h (pallet_id, sku_code, lot_id)
     WHERE is_latest = 'Y';
 
--- 운영 조회 뷰 : is_latest='Y' 자동 필터
-CREATE OR REPLACE VIEW biz.wcs_vw_pallet_line_h AS
-    SELECT * FROM biz.wcs_pallet_line_h WHERE is_latest = 'Y';
+-- 운영 조회 뷰 : is_latest='Y' 자동 필터. 컬럼 명시 (SELECT * 금지 — 운영상
+-- 베이스 테이블 컬럼 추가/순서변경 시 영향 격리)
+DROP VIEW IF EXISTS biz.wcs_vw_pallet_line_h;
+CREATE VIEW biz.wcs_vw_pallet_line_h AS
+    SELECT
+        pallet_id,
+        effective_from,
+        sku_code,
+        lot_id,
+        qty,
+        expire_date,
+        is_latest,
+        effective_to,
+        superseded_by,
+        created_at,
+        updated_at,
+        created_by,
+        updated_by
+    FROM biz.wcs_pallet_line_h
+    WHERE is_latest = 'Y';
 
 
 -- ③ wcs_eqp_pallet_m — EqpPallet 마스터 (물리 풀)
