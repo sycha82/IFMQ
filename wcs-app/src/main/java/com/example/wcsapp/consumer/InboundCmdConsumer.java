@@ -1,5 +1,6 @@
 package com.example.wcsapp.consumer;
 
+import com.example.wcsapp.client.ShuttleWcsClient;
 import com.example.wcsapp.config.RabbitMQProperties;
 import com.example.common.dto.InboundCmdDto;
 import com.example.wcsapp.service.MsgLogService;
@@ -15,6 +16,7 @@ public class InboundCmdConsumer {
 
     private final MsgLogService msgLogService;
     private final RabbitMQProperties props;
+    private final ShuttleWcsClient shuttleWcsClient;
 
     @RabbitListener(queues = "${wcs.rabbitmq.queue.inbound-cmd}")
     public void receive(InboundCmdDto dto) {
@@ -52,7 +54,9 @@ public class InboundCmdConsumer {
         log.debug("[CONSUMER] processing | taskId={} palletId={} itemCode={} lotId={} qty={} expireDate={}",
                 dto.getTaskId(), dto.getPalletId(), dto.getItemCode(),
                 dto.getLotId(), dto.getQty(), dto.getExpireDate());
-        // TODO: 실제 비즈니스 로직 구현
+
+        // 입고 비즈니스 처리는 shuttle-wcs 모듈로 위임
+        shuttleWcsClient.notifyInboundOrder(dto);
     }
 
     private void printReceived(InboundCmdDto dto) {

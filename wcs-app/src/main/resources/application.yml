@@ -16,6 +16,8 @@ spring:
     virtual-host: /
 
 wcs:
+  shuttle:
+    base-url: ${SHUTTLE_WCS_BASE_URL:http://localhost:9002}
   rabbitmq:
     exchange: wcs.topic
     queue:
