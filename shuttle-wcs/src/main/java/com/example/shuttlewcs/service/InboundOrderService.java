@@ -5,6 +5,7 @@ import com.example.shuttlewcs.db.WcsInboundOrderH;
 import com.example.shuttlewcs.db.WcsInboundOrderHMapper;
 import com.example.shuttlewcs.db.WcsPalletLineH;
 import com.example.shuttlewcs.db.WcsPalletLineHMapper;
+import com.example.shuttlewcs.exception.InboundOrderConflictException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,30 +24,30 @@ public class InboundOrderService {
     private final WcsPalletLineHMapper palletLineHMapper;
 
     // INBOUND_CMD 수신 적재 — wcs_inbound_order_h(RECEIVED) + wcs_pallet_line_h(is_latest=Y)
+    // 동일 taskId+palletId 재수신은 WMS 재시도로만 해석 → 중복 거부(409).
+    // 입고 정보 수정은 취소(추후 구현) 후 신규 taskId로 재발행하는 것이 올바른 흐름이다.
     @Transactional
     public void receiveInboundOrder(InboundCmdDto dto) {
+        WcsInboundOrderH existing = inboundOrderHMapper.findByPk(dto.getTaskId(), dto.getPalletId());
+        if (existing != null) {
+            throw new InboundOrderConflictException(
+                    "이미 존재하는 입고 주문 재수신 거부 | taskId=" + dto.getTaskId()
+                            + " palletId=" + dto.getPalletId()
+                            + " cmdStatus=" + existing.getCmdStatus());
+        }
+
         String lotId = resolveLotId(dto.getLotId());
         LocalDateTime now = LocalDateTime.now();
 
-        WcsInboundOrderH existing = inboundOrderHMapper.findByPk(dto.getTaskId(), dto.getPalletId());
-
-        if (existing == null) {
-            inboundOrderHMapper.insert(WcsInboundOrderH.builder()
-                    .taskId(dto.getTaskId())
-                    .palletId(dto.getPalletId())
-                    .cmdStatus("RECEIVED")
-                    .recvMessageId(dto.getMessageId())
-                    .lastMessageId(dto.getMessageId())
-                    .recvCount(1)
-                    .receivedAt(now)
-                    .build());
-            log.info("[INBOUND_ORDER] 신규 적재 | taskId={} palletId={}", dto.getTaskId(), dto.getPalletId());
-        } else {
-            inboundOrderHMapper.updateOnResubmit(dto.getTaskId(), dto.getPalletId(), dto.getMessageId(), now);
-            palletLineHMapper.supersedeLatest(dto.getPalletId(), dto.getItemCode(), lotId, now, now);
-            log.info("[INBOUND_ORDER] 재수신 적재 | taskId={} palletId={} recvCount={}",
-                    dto.getTaskId(), dto.getPalletId(), existing.getRecvCount() + 1);
-        }
+        inboundOrderHMapper.insert(WcsInboundOrderH.builder()
+                .taskId(dto.getTaskId())
+                .palletId(dto.getPalletId())
+                .cmdStatus("RECEIVED")
+                .recvMessageId(dto.getMessageId())
+                .lastMessageId(dto.getMessageId())
+                .recvCount(1)
+                .receivedAt(now)
+                .build());
 
         palletLineHMapper.insert(WcsPalletLineH.builder()
                 .palletId(dto.getPalletId())
@@ -57,6 +58,8 @@ public class InboundOrderService {
                 .expireDate(dto.getExpireDate())
                 .isLatest("Y")
                 .build());
+
+        log.info("[INBOUND_ORDER] 신규 적재 | taskId={} palletId={}", dto.getTaskId(), dto.getPalletId());
     }
 
     private String resolveLotId(String lotId) {
