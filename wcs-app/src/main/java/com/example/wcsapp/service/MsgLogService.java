@@ -82,7 +82,7 @@ public class MsgLogService {
                 .messageId(dto.getMessageId())
                 .refMessageId(dto.getRefMessageId())
                 .sequenceNo(dto.getSequenceNo())
-                .msgTimestamp(dto.getTimestamp())
+                .msgTimestamp(dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now())
                 .routingKey(routingKey)
                 .queueName(queueName)
                 .payload(payload)
