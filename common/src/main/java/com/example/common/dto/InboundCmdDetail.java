@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -17,8 +16,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class InboundCmdDetail {
 
-    private int sequenceNo;
-    private LocalDateTime timestamp;
+    private int lineNo;
     private String palletId;
     private String itemCode;
     private String lotId;

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsInboundOrderDMapper">
+
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsInboundOrderD">
+        <id     property="taskId"       column="task_id"/>
+        <id     property="palletId"     column="pallet_id"/>
+        <id     property="skuCode"      column="sku_code"/>
+        <id     property="lotId"        column="lot_id"/>
+        <result property="lineNo"       column="line_no"/>
+        <result property="qty"          column="qty"/>
+        <result property="expireDate"   column="expire_date"/>
+        <result property="mappedAt"     column="mapped_at"/>
+        <result property="completedAt"  column="completed_at"/>
+        <result property="cancelledAt"  column="cancelled_at"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="createdAt"    column="created_at"/>
+        <result property="updatedAt"    column="updated_at"/>
+        <result property="createdBy"    column="created_by"/>
+        <result property="updatedBy"    column="updated_by"/>
+    </resultMap>
+
+    <select id="findByTaskId" resultMap="rs">
+        SELECT * FROM biz.wcs_inbound_order_d
+        WHERE task_id = #{taskId}
+        ORDER BY line_no
+    </select>
+
+    <!-- PRE03 매핑 검증용 — 미매핑·미취소 라인 중 palletId로 조회 -->
+    <select id="findPendingByPalletId" resultMap="rs">
+        SELECT * FROM biz.wcs_inbound_order_d
+        WHERE pallet_id = #{palletId}
+          AND mapped_at IS NULL
+          AND cancelled_at IS NULL
+        LIMIT 1
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_inbound_order_d
+    </select>
+
+    <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsInboundOrderD">
+        INSERT INTO biz.wcs_inbound_order_d (
+            task_id, pallet_id, sku_code, lot_id,
+            line_no, qty, expire_date,
+            created_by, updated_by
+        ) VALUES (
+            #{taskId}, #{palletId}, #{skuCode},
+            COALESCE(#{lotId}, 'N/A'),
+            #{lineNo}, #{qty}, #{expireDate},
+            COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
+        )
+    </insert>
+
+</mapper>

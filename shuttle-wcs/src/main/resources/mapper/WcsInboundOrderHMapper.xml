@@ -6,34 +6,21 @@
 
     <resultMap id="rs" type="com.example.shuttlewcs.db.WcsInboundOrderH">
         <id     property="taskId"          column="task_id"/>
-        <id     property="palletId"        column="pallet_id"/>
         <result property="cmdStatus"       column="cmd_status"/>
         <result property="recvMessageId"   column="recv_message_id"/>
         <result property="lastMessageId"   column="last_message_id"/>
         <result property="recvCount"       column="recv_count"/>
         <result property="receivedAt"      column="received_at"/>
-        <result property="qtyUpdatedAt"    column="qty_updated_at"/>
-        <result property="mappedAt"        column="mapped_at"/>
         <result property="completedAt"     column="completed_at"/>
-        <result property="cancelledAt"     column="cancelled_at"/>
-        <result property="cancelReason"    column="cancel_reason"/>
         <result property="createdAt"       column="created_at"/>
         <result property="updatedAt"       column="updated_at"/>
         <result property="createdBy"       column="created_by"/>
         <result property="updatedBy"       column="updated_by"/>
     </resultMap>
 
-    <select id="findByPk" resultMap="rs">
+    <select id="findByTaskId" resultMap="rs">
         SELECT * FROM biz.wcs_inbound_order_h
-        WHERE task_id = #{taskId} AND pallet_id = #{palletId}
-    </select>
-
-    <select id="findReceivedByPalletId" resultMap="rs">
-        SELECT * FROM biz.wcs_inbound_order_h
-        WHERE pallet_id = #{palletId}
-          AND cmd_status = 'RECEIVED'
-        ORDER BY received_at DESC
-        LIMIT 1
+        WHERE task_id = #{taskId}
     </select>
 
     <select id="countAll" resultType="int">
@@ -42,38 +29,24 @@
 
     <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsInboundOrderH">
         INSERT INTO biz.wcs_inbound_order_h (
-            task_id, pallet_id, cmd_status,
+            task_id, cmd_status,
             recv_message_id, last_message_id, recv_count,
-            received_at, qty_updated_at, mapped_at, completed_at,
-            cancelled_at, cancel_reason,
+            received_at,
             created_by, updated_by
         ) VALUES (
-            #{taskId}, #{palletId}, #{cmdStatus},
-            #{recvMessageId}, #{lastMessageId}, #{recvCount},
-            #{receivedAt}, #{qtyUpdatedAt}, #{mappedAt}, #{completedAt},
-            #{cancelledAt}, #{cancelReason},
+            #{taskId}, COALESCE(#{cmdStatus}, 'RECEIVED'),
+            #{recvMessageId}, #{lastMessageId}, COALESCE(#{recvCount}, 1),
+            COALESCE(#{receivedAt}, now()),
             COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
         )
     </insert>
 
-    <update id="updateOnResubmit">
-        UPDATE biz.wcs_inbound_order_h
-        SET last_message_id = #{lastMessageId},
-            recv_count      = recv_count + 1,
-            qty_updated_at  = #{qtyUpdatedAt},
-            updated_at      = CURRENT_TIMESTAMP
-        WHERE task_id = #{taskId} AND pallet_id = #{palletId}
-    </update>
-
     <update id="updateStatus">
         UPDATE biz.wcs_inbound_order_h
-        SET cmd_status    = #{cmdStatus},
-            mapped_at     = COALESCE(#{mappedAt},    mapped_at),
-            completed_at  = COALESCE(#{completedAt}, completed_at),
-            cancelled_at  = COALESCE(#{cancelledAt}, cancelled_at),
-            cancel_reason = COALESCE(#{cancelReason}, cancel_reason),
-            updated_at    = CURRENT_TIMESTAMP
-        WHERE task_id = #{taskId} AND pallet_id = #{palletId}
+        SET cmd_status = #{cmdStatus},
+            completed_at = CASE WHEN #{cmdStatus} = 'COMPLETED' THEN now() ELSE completed_at END,
+            updated_at = now()
+        WHERE task_id = #{taskId}
     </update>
 
 </mapper>

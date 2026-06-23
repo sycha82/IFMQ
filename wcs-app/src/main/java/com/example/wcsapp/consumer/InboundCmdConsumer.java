@@ -65,8 +65,8 @@ public class InboundCmdConsumer {
         System.out.println("  taskId    : " + dto.getTaskId());
         if (dto.getInboundDetail() != null) {
             for (InboundCmdDetail d : dto.getInboundDetail()) {
-                System.out.printf("  [seq=%d] palletId=%s itemCode=%s lotId=%s qty=%d expireDate=%s%n",
-                        d.getSequenceNo(), d.getPalletId(), d.getItemCode(),
+                System.out.printf("  [line=%d] palletId=%s itemCode=%s lotId=%s qty=%d expireDate=%s%n",
+                        d.getLineNo(), d.getPalletId(), d.getItemCode(),
                         d.getLotId(), d.getQty(), d.getExpireDate());
             }
         }

@@ -25,12 +25,13 @@ public class WmsCliRunner implements CommandLineRunner {
             {
               "messageType": "INBOUND_CMD",
               "messageId": "MSG-20260422-0000",
-              "taskId": "WMS-IN-20260422-001",
               "refMessageId": null,
+              "sequenceNo": 1,
+              "timestamp": "2026-04-22T08:50:00",
+              "taskId": "WMS-IN-20260422-001",
               "inboundDetail": [
                 {
-                  "sequenceNo": 1,
-                  "timestamp": "2026-04-22T08:50:00",
+                  "lineNo": 1,
                   "palletId": "PLT-20260422-001",
                   "itemCode": "ITEM-20260422-001",
                   "lotId": "LOT-20260422-001",
