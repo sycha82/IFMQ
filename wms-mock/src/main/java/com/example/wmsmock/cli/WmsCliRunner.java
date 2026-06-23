@@ -86,7 +86,7 @@ public class WmsCliRunner implements CommandLineRunner {
     }
 
     private void sendInboundCmd(Scanner scanner) {
-        System.out.println("\n[INBOUND_CMD] JSON 입력 (Enter만 치면 기본값 사용):");
+        System.out.println("\n[INBOUND_CMD] JSON 붙여넣기 ('default' 입력 시 아래 기본값 사용):");
         System.out.println(DEFAULT_INBOUND_CMD);
         System.out.print("> ");
 
@@ -102,7 +102,7 @@ public class WmsCliRunner implements CommandLineRunner {
     }
 
     private void sendInboundCancel(Scanner scanner) {
-        System.out.println("\n[INBOUND_CANCEL] JSON 입력 (Enter만 치면 기본값 사용):");
+        System.out.println("\n[INBOUND_CANCEL] JSON 붙여넣기 ('default' 입력 시 아래 기본값 사용):");
         System.out.println(DEFAULT_INBOUND_CANCEL);
         System.out.print("> ");
 
@@ -119,7 +119,7 @@ public class WmsCliRunner implements CommandLineRunner {
 
     /**
      * 여러 줄로 붙여넣은 JSON을 중괄호 균형이 맞을 때까지 읽어들인다.
-     * 첫 줄이 비어 있으면 기본값을 사용한다.
+     * '{' 이전의 빈 줄은 무시하며, "default" 입력 시 기본값을 사용한다.
      */
     private String readJsonInput(Scanner scanner, String defaultJson) {
         StringBuilder sb = new StringBuilder();
@@ -128,8 +128,14 @@ public class WmsCliRunner implements CommandLineRunner {
 
         while (scanner.hasNextLine()) {
             String line = scanner.nextLine();
-            if (!started && line.trim().isEmpty()) {
-                return defaultJson;
+            if (!started) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    continue;                       // JSON 시작 전 빈 줄 무시
+                }
+                if (trimmed.equalsIgnoreCase("default")) {
+                    return defaultJson;             // 기본값 사용
+                }
             }
             sb.append(line).append("\n");
             for (char c : line.toCharArray()) {
