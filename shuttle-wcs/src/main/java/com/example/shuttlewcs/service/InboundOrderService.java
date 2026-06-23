@@ -1,5 +1,6 @@
 package com.example.shuttlewcs.service;
 
+import com.example.common.dto.InboundCmdDetail;
 import com.example.common.dto.InboundCmdDto;
 import com.example.shuttlewcs.db.WcsInboundOrderH;
 import com.example.shuttlewcs.db.WcsInboundOrderHMapper;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -23,43 +25,51 @@ public class InboundOrderService {
     private final WcsInboundOrderHMapper inboundOrderHMapper;
     private final WcsPalletLineHMapper palletLineHMapper;
 
-    // INBOUND_CMD 수신 적재 — wcs_inbound_order_h(RECEIVED) + wcs_pallet_line_h(is_latest=Y)
+    // INBOUND_CMD 수신 적재 — 1 task : N pallet 일괄 처리
     // 동일 taskId+palletId 재수신은 WMS 재시도로만 해석 → 중복 거부(409).
-    // 입고 정보 수정은 취소(추후 구현) 후 신규 taskId로 재발행하는 것이 올바른 흐름이다.
     @Transactional
     public void receiveInboundOrder(InboundCmdDto dto) {
-        WcsInboundOrderH existing = inboundOrderHMapper.findByPk(dto.getTaskId(), dto.getPalletId());
-        if (existing != null) {
-            throw new InboundOrderConflictException(
-                    "이미 존재하는 입고 주문 재수신 거부 | taskId=" + dto.getTaskId()
-                            + " palletId=" + dto.getPalletId()
-                            + " cmdStatus=" + existing.getCmdStatus());
+        List<InboundCmdDetail> details = dto.getInboundDetail();
+        if (details == null || details.isEmpty()) {
+            throw new IllegalArgumentException("inboundDetail이 비어 있음 | messageId=" + dto.getMessageId());
         }
 
-        String lotId = resolveLotId(dto.getLotId());
         LocalDateTime now = LocalDateTime.now();
 
-        inboundOrderHMapper.insert(WcsInboundOrderH.builder()
-                .taskId(dto.getTaskId())
-                .palletId(dto.getPalletId())
-                .cmdStatus("RECEIVED")
-                .recvMessageId(dto.getMessageId())
-                .lastMessageId(dto.getMessageId())
-                .recvCount(1)
-                .receivedAt(now)
-                .build());
+        for (InboundCmdDetail detail : details) {
+            WcsInboundOrderH existing = inboundOrderHMapper.findByPk(dto.getTaskId(), detail.getPalletId());
+            if (existing != null) {
+                throw new InboundOrderConflictException(
+                        "이미 존재하는 입고 주문 재수신 거부 | taskId=" + dto.getTaskId()
+                                + " palletId=" + detail.getPalletId()
+                                + " cmdStatus=" + existing.getCmdStatus());
+            }
 
-        palletLineHMapper.insert(WcsPalletLineH.builder()
-                .palletId(dto.getPalletId())
-                .effectiveFrom(now)
-                .skuCode(dto.getItemCode())
-                .lotId(lotId)
-                .qty(dto.getQty())
-                .expireDate(dto.getExpireDate())
-                .isLatest("Y")
-                .build());
+            String lotId = resolveLotId(detail.getLotId());
 
-        log.info("[INBOUND_ORDER] 신규 적재 | taskId={} palletId={}", dto.getTaskId(), dto.getPalletId());
+            inboundOrderHMapper.insert(WcsInboundOrderH.builder()
+                    .taskId(dto.getTaskId())
+                    .palletId(detail.getPalletId())
+                    .cmdStatus("RECEIVED")
+                    .recvMessageId(dto.getMessageId())
+                    .lastMessageId(dto.getMessageId())
+                    .recvCount(1)
+                    .receivedAt(now)
+                    .build());
+
+            palletLineHMapper.insert(WcsPalletLineH.builder()
+                    .palletId(detail.getPalletId())
+                    .effectiveFrom(now)
+                    .skuCode(detail.getItemCode())
+                    .lotId(lotId)
+                    .qty(detail.getQty())
+                    .expireDate(detail.getExpireDate())
+                    .isLatest("Y")
+                    .build());
+
+            log.info("[INBOUND_ORDER] 신규 적재 | taskId={} palletId={} seq={}",
+                    dto.getTaskId(), detail.getPalletId(), detail.getSequenceNo());
+        }
     }
 
     private String resolveLotId(String lotId) {

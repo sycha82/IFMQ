@@ -25,15 +25,19 @@ public class WmsCliRunner implements CommandLineRunner {
             {
               "messageType": "INBOUND_CMD",
               "messageId": "MSG-20260422-0000",
-              "refMessageId": null,
-              "sequenceNo": 999,
-              "timestamp": "2026-04-22T08:50:00",
               "taskId": "WMS-IN-20260422-001",
-              "palletId": "PLT-20260422-001",
-              "itemCode": "ITEM-20260422-001",
-              "lotId": "LOT-20260422-001",
-              "qty": 24,
-              "expireDate": "2027-04-22"
+              "refMessageId": null,
+              "inboundDetail": [
+                {
+                  "sequenceNo": 1,
+                  "timestamp": "2026-04-22T08:50:00",
+                  "palletId": "PLT-20260422-001",
+                  "itemCode": "ITEM-20260422-001",
+                  "lotId": "LOT-20260422-001",
+                  "qty": 24,
+                  "expireDate": "2027-04-22"
+                }
+              ]
             }""";
 
     private static final String DEFAULT_INBOUND_CANCEL = """

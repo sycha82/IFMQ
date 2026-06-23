@@ -1,5 +1,6 @@
 package com.example.wcsapp.controller;
 
+import com.example.common.dto.InboundCmdDetail;
 import com.example.common.dto.InboundCmdDto;
 import com.example.common.dto.InboundCompleteDto;
 import com.example.wcsapp.producer.InboundCmdProducer;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/test")
@@ -45,14 +47,18 @@ public class TestController {
                 .messageType("INBOUND_CMD")
                 .messageId("MSG-20260422-0000")
                 .refMessageId(null)
-                .sequenceNo(999)
-                .timestamp(LocalDateTime.of(2026, 4, 22, 8, 50, 0))
                 .taskId("WMS-IN-20260422-001")
-                .palletId("PLT-20260422-001")
-                .itemCode("ITEM-20260422-001")
-                .lotId("LOT-20260422-001")
-                .qty(24)
-                .expireDate(LocalDate.of(2027, 4, 22))
+                .inboundDetail(List.of(
+                        InboundCmdDetail.builder()
+                                .sequenceNo(1)
+                                .timestamp(LocalDateTime.of(2026, 4, 22, 8, 50, 0))
+                                .palletId("PLT-20260422-001")
+                                .itemCode("ITEM-20260422-001")
+                                .lotId("LOT-20260422-001")
+                                .qty(24)
+                                .expireDate(LocalDate.of(2027, 4, 22))
+                                .build()
+                ))
                 .build();
     }
 

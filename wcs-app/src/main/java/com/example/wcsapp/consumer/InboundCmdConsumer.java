@@ -2,6 +2,7 @@ package com.example.wcsapp.consumer;
 
 import com.example.wcsapp.client.ShuttleWcsClient;
 import com.example.wcsapp.config.RabbitMQProperties;
+import com.example.common.dto.InboundCmdDetail;
 import com.example.common.dto.InboundCmdDto;
 import com.example.wcsapp.service.MsgLogService;
 import lombok.RequiredArgsConstructor;
@@ -51,11 +52,10 @@ public class InboundCmdConsumer {
     }
 
     private void processInboundCmd(InboundCmdDto dto) {
-        log.debug("[CONSUMER] processing | taskId={} palletId={} itemCode={} lotId={} qty={} expireDate={}",
-                dto.getTaskId(), dto.getPalletId(), dto.getItemCode(),
-                dto.getLotId(), dto.getQty(), dto.getExpireDate());
+        log.debug("[CONSUMER] processing | taskId={} detailCount={}",
+                dto.getTaskId(),
+                dto.getInboundDetail() != null ? dto.getInboundDetail().size() : 0);
 
-        // 입고 비즈니스 처리는 shuttle-wcs 모듈로 위임
         shuttleWcsClient.notifyInboundOrder(dto);
     }
 
@@ -63,12 +63,13 @@ public class InboundCmdConsumer {
         System.out.println("\n[WCS 수신] INBOUND_CMD");
         System.out.println("  messageId : " + dto.getMessageId());
         System.out.println("  taskId    : " + dto.getTaskId());
-        System.out.println("  palletId  : " + dto.getPalletId());
-        System.out.println("  itemCode  : " + dto.getItemCode());
-        System.out.println("  lotId     : " + dto.getLotId());
-        System.out.println("  qty       : " + dto.getQty());
-        System.out.println("  expireDate: " + dto.getExpireDate());
-        System.out.println("  timestamp : " + dto.getTimestamp());
+        if (dto.getInboundDetail() != null) {
+            for (InboundCmdDetail d : dto.getInboundDetail()) {
+                System.out.printf("  [seq=%d] palletId=%s itemCode=%s lotId=%s qty=%d expireDate=%s%n",
+                        d.getSequenceNo(), d.getPalletId(), d.getItemCode(),
+                        d.getLotId(), d.getQty(), d.getExpireDate());
+            }
+        }
         System.out.print("선택 > ");
     }
 }
