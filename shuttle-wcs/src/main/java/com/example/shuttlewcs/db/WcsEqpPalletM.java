@@ -14,7 +14,7 @@ public class WcsEqpPalletM {
 
     private String eqpPalletId;
     private Integer eqpPalletNo;
-    private String palletStatus;       // EMPTY | IN_USE | MAINTENANCE
+    private String palletStatus;       // IN_USE | MAINTENANCE
     private String useYn;              // Y | N
     private String maintReason;
 

@@ -33,15 +33,17 @@ public class MappingService {
         if (master == null) {
             throw new MappingException("존재하지 않는 설비파레트 | eqpPalletId=" + eqpPalletId);
         }
-        if (!"Y".equals(master.getUseYn())) {
+        if (!"Y".equals(master.getUseYn()) || "MAINTENANCE".equals(master.getPalletStatus())) {
             throw new MappingException("사용불가 설비파레트 | eqpPalletId=" + eqpPalletId
+                    + " palletStatus=" + master.getPalletStatus()
                     + " useYn=" + master.getUseYn());
         }
 
-        // 2. EqpPallet 현재 매핑 상태 검증 (EMPTY만 매핑 가능)
+        // 2. EqpPallet 현재 매핑 상태 검증 (EMPTY만 매핑 가능, 없으면 자동 생성)
         WcsEqpPalletMap currentMap = eqpPalletMapMapper.findById(eqpPalletId);
         if (currentMap == null) {
-            throw new MappingException("매핑 레코드 미존재 | eqpPalletId=" + eqpPalletId);
+            eqpPalletMapMapper.insertEmpty(eqpPalletId);
+            currentMap = eqpPalletMapMapper.findById(eqpPalletId);
         }
         if (!"EMPTY".equals(currentMap.getMapStatus())) {
             throw new MappingException("이미 사용중인 설비파레트 | eqpPalletId=" + eqpPalletId
@@ -91,8 +93,7 @@ public class MappingService {
                     .build());
         }
 
-        // 8. wcs_eqp_pallet_m 상태 갱신
-        eqpPalletMMapper.updateStatus(eqpPalletId, "IN_USE", null);
+        // 8. wcs_eqp_pallet_m 최종 사용시각 갱신
         eqpPalletMMapper.updateLastUsedAt(eqpPalletId, now);
 
         log.info("[MAPPING] PRE03 매핑 완료 | eqpPalletId={} palletId={} taskId={} lines={}",

@@ -35,7 +35,7 @@
             created_by, updated_by
         ) VALUES (
             #{eqpPalletId}, #{eqpPalletNo},
-            COALESCE(#{palletStatus}, 'EMPTY'),
+            COALESCE(#{palletStatus}, 'IN_USE'),
             COALESCE(#{useYn}, 'Y'),
             #{maintReason},
             #{registeredAt}, #{lastUsedAt}, #{memo},

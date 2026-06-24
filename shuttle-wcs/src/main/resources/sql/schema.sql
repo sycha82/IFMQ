@@ -139,7 +139,7 @@ CREATE OR REPLACE VIEW biz.wcs_vw_pallet_line_h AS
 CREATE TABLE IF NOT EXISTS biz.wcs_eqp_pallet_m (
     eqp_pallet_id   VARCHAR(30)  NOT NULL,
     eqp_pallet_no   INTEGER      NULL,
-    pallet_status   VARCHAR(20)  NOT NULL DEFAULT 'EMPTY',
+    pallet_status   VARCHAR(20)  NOT NULL DEFAULT 'IN_USE',
     use_yn          CHAR(1)      NOT NULL DEFAULT 'Y' CHECK (use_yn IN ('Y','N')),
     maint_reason    VARCHAR(200) NULL,
     registered_at   TIMESTAMP    NOT NULL,
