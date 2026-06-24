@@ -16,4 +16,11 @@ public class GlobalExceptionHandler {
         log.warn("[CONFLICT] {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
     }
+
+    // 매핑 검증 실패 → 400 Bad Request
+    @ExceptionHandler(MappingException.class)
+    public ResponseEntity<String> handleMappingError(MappingException e) {
+        log.warn("[MAPPING] {}", e.getMessage());
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
 }

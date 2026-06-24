@@ -28,13 +28,22 @@
         ORDER BY line_no
     </select>
 
-    <!-- PRE03 매핑 검증용 — 미매핑·미취소 라인 중 palletId로 조회 -->
+    <!-- PRE03 매핑 검증용 — 미매핑·미취소 라인 중 palletId로 조회 (1건) -->
     <select id="findPendingByPalletId" resultMap="rs">
         SELECT * FROM biz.wcs_inbound_order_d
         WHERE pallet_id = #{palletId}
           AND mapped_at IS NULL
           AND cancelled_at IS NULL
         LIMIT 1
+    </select>
+
+    <!-- PRE03 매핑 등록용 — 미매핑·미취소 라인 전체 조회 (pallet_line_h 생성용) -->
+    <select id="findAllPendingByPalletId" resultMap="rs">
+        SELECT * FROM biz.wcs_inbound_order_d
+        WHERE pallet_id = #{palletId}
+          AND mapped_at IS NULL
+          AND cancelled_at IS NULL
+        ORDER BY line_no
     </select>
 
     <select id="countAll" resultType="int">
@@ -53,5 +62,15 @@
             COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
         )
     </insert>
+
+    <!-- PRE03 매핑 시 mapped_at 갱신 (palletId 기준 미매핑·미취소 전체) -->
+    <update id="updateMappedAt">
+        UPDATE biz.wcs_inbound_order_d
+        SET mapped_at  = #{mappedAt},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE pallet_id = #{palletId}
+          AND mapped_at IS NULL
+          AND cancelled_at IS NULL
+    </update>
 
 </mapper>
