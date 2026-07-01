@@ -254,3 +254,25 @@ COMMENT ON COLUMN biz.wcs_shuttle_msg_log.api_name       IS 'API 식별자 (STAT
 COMMENT ON COLUMN biz.wcs_shuttle_msg_log.wcs_task_id    IS 'Shuttle-WCS가 발급한 이동 task 식별자 (eqpPalletId-cycleNo)';
 COMMENT ON COLUMN biz.wcs_shuttle_msg_log.payload        IS '요청/응답 DTO 원본 JSON';
 COMMENT ON COLUMN biz.wcs_shuttle_msg_log.result         IS '응답류 로그의 result 필드 (ACCEPTED/REJECTED/OK 등), 요청류는 NULL';
+
+
+-- ⑧ wcs_inventory — 재고 (INBOUND_DONE 시 (sku, location_id) 단위 수량 누적)
+--    location_id 에 eqp_pallet_id 를 사용 (팔레트가 랙에 적재된 상태의 재고 위치)
+CREATE TABLE IF NOT EXISTS biz.wcs_inventory (
+    sku          VARCHAR(64)  NOT NULL,
+    location_id  VARCHAR(64)  NOT NULL,
+    quantity     INT8         NOT NULL DEFAULT 0,
+    uom          VARCHAR(16)  NOT NULL DEFAULT 'EA',
+    updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT wcs_inventory_pkey PRIMARY KEY (sku, location_id),
+    CONSTRAINT ck_biz_wcs_inventory_quantity_nonneg CHECK (quantity >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_biz_wcs_inventory_location ON biz.wcs_inventory (location_id);
+CREATE INDEX IF NOT EXISTS idx_biz_wcs_inventory_sku      ON biz.wcs_inventory (sku);
+
+COMMENT ON TABLE  biz.wcs_inventory IS '재고 — INBOUND_DONE 완료 시 (sku, location_id) 단위 수량 누적. location_id=eqp_pallet_id';
+COMMENT ON COLUMN biz.wcs_inventory.sku         IS '품목 코드';
+COMMENT ON COLUMN biz.wcs_inventory.location_id IS '재고 위치 — 현재는 eqp_pallet_id (팔레트 단위 랙 재고)';
+COMMENT ON COLUMN biz.wcs_inventory.quantity    IS '재고 수량 (0 이상)';
+COMMENT ON COLUMN biz.wcs_inventory.uom         IS '수량 단위 (기본 EA)';

@@ -50,4 +50,14 @@
         WHERE station_id = #{stationId}
     </update>
 
+    <!-- INBOUND_DONE 시 해당 eqpPallet를 점유중이던 스테이션 해제 -->
+    <update id="freeByEqpPallet">
+        UPDATE biz.wcs_station
+        SET status            = 'AVAILABLE',
+            cur_eqp_pallet_id = NULL,
+            status_changed_at = #{changedAt},
+            updated_at        = CURRENT_TIMESTAMP
+        WHERE cur_eqp_pallet_id = #{eqpPalletId}
+    </update>
+
 </mapper>

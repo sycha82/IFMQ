@@ -24,4 +24,11 @@ public interface WcsInboundOrderDMapper {
 
     void updateMappedAt(@Param("palletId") String palletId,
                         @Param("mappedAt") LocalDateTime mappedAt);
+
+    // INBOUND_DONE 시 완료 처리 — palletId 기준 미취소·미완료 라인 completed_at 기록
+    void updateCompletedByPalletId(@Param("palletId") String palletId,
+                                   @Param("completedAt") LocalDateTime completedAt);
+
+    // task 완료 집계용 — 미취소·미완료(진행중) 라인 수
+    int countActiveIncompleteByTaskId(@Param("taskId") String taskId);
 }

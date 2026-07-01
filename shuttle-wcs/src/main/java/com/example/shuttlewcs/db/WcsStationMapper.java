@@ -23,4 +23,8 @@ public interface WcsStationMapper {
                                @Param("status") String status,
                                @Param("curEqpPalletId") String curEqpPalletId,
                                @Param("changedAt") LocalDateTime changedAt);
+
+    // INBOUND_DONE 시 스테이션 해제 — 해당 eqpPallet 점유 스테이션을 AVAILABLE 로
+    void freeByEqpPallet(@Param("eqpPalletId") String eqpPalletId,
+                         @Param("changedAt") LocalDateTime changedAt);
 }

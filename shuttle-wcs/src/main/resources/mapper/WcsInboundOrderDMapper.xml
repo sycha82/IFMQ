@@ -81,4 +81,22 @@
           AND cancelled_at IS NULL
     </update>
 
+    <!-- INBOUND_DONE 시 완료 처리 (palletId 기준 미취소·미완료 전체) -->
+    <update id="updateCompletedByPalletId">
+        UPDATE biz.wcs_inbound_order_d
+        SET completed_at = #{completedAt},
+            updated_at   = CURRENT_TIMESTAMP
+        WHERE pallet_id = #{palletId}
+          AND cancelled_at IS NULL
+          AND completed_at IS NULL
+    </update>
+
+    <!-- task 완료 집계 — 미취소·미완료(진행중) 라인 수 -->
+    <select id="countActiveIncompleteByTaskId" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_inbound_order_d
+        WHERE task_id = #{taskId}
+          AND cancelled_at IS NULL
+          AND completed_at IS NULL
+    </select>
+
 </mapper>

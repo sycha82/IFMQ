@@ -1,6 +1,8 @@
 package com.example.shuttlewcs.controller;
 
 import com.example.common.dto.BcrReadDto;
+import com.example.common.dto.InboundDoneAckDto;
+import com.example.common.dto.InboundDoneDto;
 import com.example.common.dto.StationStatusDto;
 import com.example.shuttlewcs.service.RcsInboundService;
 import lombok.RequiredArgsConstructor;
@@ -32,5 +34,11 @@ public class RcsInboundController {
         rcsInboundService.receiveBcrRead(dto);
         return ResponseEntity.ok("BCR_READ 처리 | stationId=" + dto.getStationId()
                 + " eqpPalletId=" + dto.getEqpPalletId());
+    }
+
+    // API 05 · INBOUND_DONE → 응답이 곧 API 06 INBOUND_DONE_ACK
+    @PostMapping("/inbound-done")
+    public InboundDoneAckDto inboundDone(@RequestBody InboundDoneDto dto) {
+        return rcsInboundService.receiveInboundDone(dto);
     }
 }

@@ -1,6 +1,8 @@
 package com.example.rcsmock.client;
 
 import com.example.common.dto.BcrReadDto;
+import com.example.common.dto.InboundDoneAckDto;
+import com.example.common.dto.InboundDoneDto;
 import com.example.common.dto.StationStatusDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,4 +19,8 @@ public interface ShuttleWcsRcsClient {
     // API 02 · BCR_READ
     @PostMapping("/rcs/bcr-read")
     String sendBcrRead(@RequestBody BcrReadDto dto);
+
+    // API 05 · INBOUND_DONE → 응답이 곧 API 06 INBOUND_DONE_ACK
+    @PostMapping("/rcs/inbound-done")
+    InboundDoneAckDto sendInboundDone(@RequestBody InboundDoneDto dto);
 }
