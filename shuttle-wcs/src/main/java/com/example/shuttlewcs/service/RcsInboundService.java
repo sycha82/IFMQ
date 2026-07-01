@@ -1,12 +1,15 @@
 package com.example.shuttlewcs.service;
 
 import com.example.common.dto.BcrReadDto;
+import com.example.common.dto.InboundCompleteDto;
 import com.example.common.dto.InboundDoneAckDto;
 import com.example.common.dto.InboundDoneDto;
 import com.example.common.dto.InboundTaskAckDto;
 import com.example.common.dto.InboundTaskDto;
 import com.example.common.dto.StationStatusDto;
 import com.example.shuttlewcs.client.RcsClient;
+import com.example.shuttlewcs.client.WcsAppClient;
+import com.example.shuttlewcs.db.WcsInboundOrderH;
 import com.example.shuttlewcs.db.WcsEqpPalletMap;
 import com.example.shuttlewcs.db.WcsEqpPalletMapH;
 import com.example.shuttlewcs.db.WcsEqpPalletMapHMapper;
@@ -39,6 +42,7 @@ public class RcsInboundService {
     private final WcsInboundOrderHMapper orderHMapper;
     private final WcsInventoryMapper inventoryMapper;
     private final RcsClient rcsClient;
+    private final WcsAppClient wcsAppClient;
     private final RcsMsgLogService rcsMsgLogService;
 
     // API 01 · STATION_STATUS — 스테이션 상태 보고 반영 (upsert)
@@ -212,10 +216,45 @@ public class RcsInboundService {
             log.info("[RCS] 입고 task 완료 | taskId={}", map.getTaskId());
         }
 
+        // 5. WMS에 INBOUND_COMPLETE 자동 통보 (shuttle-wcs → wcs-app → MQ)
+        notifyWmsInboundComplete(map, lines);
+
         log.info("[RCS] INBOUND_DONE 완료 | eqpPalletId={} palletId={} 재고반영={}건 taskRemaining={}",
                 map.getEqpPalletId(), map.getPalletId(), lines.size(), remaining);
 
         return replyDoneAck(dto, "OK", "");
+    }
+
+    // API 07 · INBOUND_COMPLETE — 완료된 팔레트 라인별로 WMS에 통보 위임 (wcs-app 발행)
+    private void notifyWmsInboundComplete(WcsEqpPalletMap map, List<WcsInboundOrderD> lines) {
+        WcsInboundOrderH orderH = orderHMapper.findByTaskId(map.getTaskId());
+        String refMessageId = orderH != null ? orderH.getRecvMessageId() : null;
+
+        for (WcsInboundOrderD line : lines) {
+            InboundCompleteDto completeDto = InboundCompleteDto.builder()
+                    .messageType("INBOUND_COMPLETE")
+                    .messageId(UUID.randomUUID().toString())
+                    .refMessageId(refMessageId)
+                    .sequenceNo(1)
+                    .timestamp(LocalDateTime.now())
+                    .taskId(map.getTaskId())
+                    .palletId(map.getPalletId())
+                    .itemCode(line.getSkuCode())
+                    .lotId(line.getLotId())
+                    .qty(line.getQty())
+                    .status("COMPLETED")
+                    .message("")
+                    .build();
+            try {
+                wcsAppClient.notifyInboundComplete(completeDto);
+                log.info("[RCS] INBOUND_COMPLETE 통보 | taskId={} palletId={} itemCode={} qty={}",
+                        map.getTaskId(), map.getPalletId(), line.getSkuCode(), line.getQty());
+            } catch (Exception e) {
+                // WMS 통보 실패는 재고/완료 처리를 되돌리지 않는다 (경고만, 추후 재발행 대상)
+                log.error("[RCS] INBOUND_COMPLETE 통보 실패 | taskId={} palletId={} error={}",
+                        map.getTaskId(), map.getPalletId(), e.getMessage());
+            }
+        }
     }
 
     // API 06 · INBOUND_DONE_ACK 생성 + 발신 로깅

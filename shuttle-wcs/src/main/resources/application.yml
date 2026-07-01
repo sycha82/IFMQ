@@ -16,6 +16,8 @@ mybatis:
 wcs:
   rcs:
     base-url: ${RCS_MOCK_BASE_URL:http://localhost:9003}
+  app:
+    base-url: ${WCS_APP_BASE_URL:http://localhost:9001}
 
 logging:
   level:
