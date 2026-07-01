@@ -5,12 +5,12 @@
 <mapper namespace="com.example.shuttlewcs.db.WcsRcsMsgLogMapper">
 
     <select id="countAll" resultType="int">
-        SELECT COUNT(1) FROM biz.wcs_rcs_msg_log
+        SELECT COUNT(1) FROM biz.wcs_shuttle_msg_log
     </select>
 
     <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsRcsMsgLog"
             useGeneratedKeys="true" keyProperty="logId">
-        INSERT INTO biz.wcs_rcs_msg_log (
+        INSERT INTO biz.wcs_shuttle_msg_log (
             direction, api_name, message_id, ref_message_id,
             station_id, eqp_pallet_id, wcs_task_id,
             payload, result

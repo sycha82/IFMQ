@@ -226,8 +226,8 @@ COMMENT ON COLUMN biz.wcs_station.cur_eqp_pallet_id IS 'BCR_READ로 스테이션
 COMMENT ON COLUMN biz.wcs_station.status_changed_at IS '최근 상태 변경 시각 (RCS 보고 기준)';
 
 
--- ⑦ wcs_rcs_msg_log — RCS/설비ECS 연계 REST API 송수신 이력 (WCS 기준)
-CREATE TABLE IF NOT EXISTS biz.wcs_rcs_msg_log (
+-- ⑦ wcs_shuttle_msg_log — RCS/설비ECS 연계 REST API 송수신 이력 (WCS 기준)
+CREATE TABLE IF NOT EXISTS biz.wcs_shuttle_msg_log (
     log_id          BIGSERIAL    NOT NULL,
     direction       VARCHAR(10)  NOT NULL,   -- SEND | RECEIVE (Shuttle-WCS 기준)
     api_name        VARCHAR(30)  NOT NULL,   -- STATION_STATUS | BCR_READ | INBOUND_TASK | INBOUND_TASK_ACK | INBOUND_DONE | INBOUND_DONE_ACK
@@ -239,17 +239,17 @@ CREATE TABLE IF NOT EXISTS biz.wcs_rcs_msg_log (
     payload         JSONB        NOT NULL,
     result          VARCHAR(20)  NULL,
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_wcs_rcs_msg_log PRIMARY KEY (log_id)
+    CONSTRAINT pk_wcs_shuttle_msg_log PRIMARY KEY (log_id)
 );
 
-CREATE INDEX IF NOT EXISTS ix_wcs_rcs_msg_log_eqp
-    ON biz.wcs_rcs_msg_log (eqp_pallet_id, created_at);
-CREATE INDEX IF NOT EXISTS ix_wcs_rcs_msg_log_task
-    ON biz.wcs_rcs_msg_log (wcs_task_id);
+CREATE INDEX IF NOT EXISTS ix_wcs_shuttle_msg_log_eqp
+    ON biz.wcs_shuttle_msg_log (eqp_pallet_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_wcs_shuttle_msg_log_task
+    ON biz.wcs_shuttle_msg_log (wcs_task_id);
 
-COMMENT ON TABLE  biz.wcs_rcs_msg_log IS 'RCS/설비ECS REST 연계 송수신 이력 — Shuttle-WCS 기준 SEND(발신)/RECEIVE(수신)';
-COMMENT ON COLUMN biz.wcs_rcs_msg_log.direction      IS 'SEND(Shuttle-WCS→RCS) · RECEIVE(RCS→Shuttle-WCS)';
-COMMENT ON COLUMN biz.wcs_rcs_msg_log.api_name       IS 'API 식별자 (STATION_STATUS · BCR_READ · INBOUND_TASK · INBOUND_TASK_ACK ...)';
-COMMENT ON COLUMN biz.wcs_rcs_msg_log.wcs_task_id    IS 'Shuttle-WCS가 발급한 이동 task 식별자 (eqpPalletId-cycleNo)';
-COMMENT ON COLUMN biz.wcs_rcs_msg_log.payload        IS '요청/응답 DTO 원본 JSON';
-COMMENT ON COLUMN biz.wcs_rcs_msg_log.result         IS '응답류 로그의 result 필드 (ACCEPTED/REJECTED/OK 등), 요청류는 NULL';
+COMMENT ON TABLE  biz.wcs_shuttle_msg_log IS 'RCS/설비ECS REST 연계 송수신 이력 — Shuttle-WCS 기준 SEND(발신)/RECEIVE(수신)';
+COMMENT ON COLUMN biz.wcs_shuttle_msg_log.direction      IS 'SEND(Shuttle-WCS→RCS) · RECEIVE(RCS→Shuttle-WCS)';
+COMMENT ON COLUMN biz.wcs_shuttle_msg_log.api_name       IS 'API 식별자 (STATION_STATUS · BCR_READ · INBOUND_TASK · INBOUND_TASK_ACK ...)';
+COMMENT ON COLUMN biz.wcs_shuttle_msg_log.wcs_task_id    IS 'Shuttle-WCS가 발급한 이동 task 식별자 (eqpPalletId-cycleNo)';
+COMMENT ON COLUMN biz.wcs_shuttle_msg_log.payload        IS '요청/응답 DTO 원본 JSON';
+COMMENT ON COLUMN biz.wcs_shuttle_msg_log.result         IS '응답류 로그의 result 필드 (ACCEPTED/REJECTED/OK 등), 요청류는 NULL';
