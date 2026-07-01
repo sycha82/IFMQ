@@ -27,4 +27,5 @@ public class WcsRcsMsgLog {
     private String payload;            // JSON 직렬화된 문자열
     private String result;
     private LocalDateTime createdAt;
+    private String createdBy;
 }

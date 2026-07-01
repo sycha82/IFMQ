@@ -13,11 +13,11 @@
         INSERT INTO biz.wcs_shuttle_msg_log (
             direction, api_name, message_id, ref_message_id,
             station_id, eqp_pallet_id, wcs_task_id,
-            payload, result
+            payload, result, created_by
         ) VALUES (
             #{direction}, #{apiName}, #{messageId}, #{refMessageId},
             #{stationId}, #{eqpPalletId}, #{wcsTaskId},
-            #{payload}::jsonb, #{result}
+            #{payload}::jsonb, #{result}, COALESCE(#{createdBy}, 'SYSTEM')
         )
     </insert>
 

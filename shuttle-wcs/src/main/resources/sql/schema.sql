@@ -239,6 +239,7 @@ CREATE TABLE IF NOT EXISTS biz.wcs_shuttle_msg_log (
     payload         JSONB        NOT NULL,
     result          VARCHAR(20)  NULL,
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by      VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
     CONSTRAINT pk_wcs_shuttle_msg_log PRIMARY KEY (log_id)
 );
 
