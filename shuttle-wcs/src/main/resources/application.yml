@@ -13,6 +13,10 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
 
+wcs:
+  rcs:
+    base-url: ${RCS_MOCK_BASE_URL:http://localhost:9003}
+
 logging:
   level:
     com.example.shuttlewcs: DEBUG

@@ -15,6 +15,9 @@ public interface WcsInboundOrderDMapper {
 
     List<WcsInboundOrderD> findAllPendingByPalletId(@Param("palletId") String palletId);
 
+    // INBOUND_TASK 발행용 — 매핑 완료(mapped_at 무관) · 미취소 활성 라인 조회
+    List<WcsInboundOrderD> findActiveByPalletId(@Param("palletId") String palletId);
+
     int countAll();
 
     void insert(WcsInboundOrderD detail);

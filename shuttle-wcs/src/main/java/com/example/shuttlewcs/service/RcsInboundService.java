@@ -1,9 +1,16 @@
 package com.example.shuttlewcs.service;
 
 import com.example.common.dto.BcrReadDto;
+import com.example.common.dto.InboundTaskAckDto;
+import com.example.common.dto.InboundTaskDto;
 import com.example.common.dto.StationStatusDto;
+import com.example.shuttlewcs.client.RcsClient;
 import com.example.shuttlewcs.db.WcsEqpPalletMap;
+import com.example.shuttlewcs.db.WcsEqpPalletMapH;
+import com.example.shuttlewcs.db.WcsEqpPalletMapHMapper;
 import com.example.shuttlewcs.db.WcsEqpPalletMapMapper;
+import com.example.shuttlewcs.db.WcsInboundOrderD;
+import com.example.shuttlewcs.db.WcsInboundOrderDMapper;
 import com.example.shuttlewcs.db.WcsStation;
 import com.example.shuttlewcs.db.WcsStationMapper;
 import com.example.shuttlewcs.exception.RcsProtocolException;
@@ -13,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -21,6 +30,10 @@ public class RcsInboundService {
 
     private final WcsStationMapper stationMapper;
     private final WcsEqpPalletMapMapper eqpPalletMapMapper;
+    private final WcsEqpPalletMapHMapper eqpPalletMapHMapper;
+    private final WcsInboundOrderDMapper orderDMapper;
+    private final RcsClient rcsClient;
+    private final RcsMsgLogService rcsMsgLogService;
 
     // API 01 · STATION_STATUS — 스테이션 상태 보고 반영 (upsert)
     @Transactional
@@ -35,7 +48,7 @@ public class RcsInboundService {
                 dto.getStationId(), dto.getStationType(), dto.getStatus());
     }
 
-    // API 02 · BCR_READ — 스테이션에서 읽은 eqpPallet 매핑 검증 + 스테이션 점유
+    // API 02 · BCR_READ — 스테이션에서 읽은 eqpPallet 매핑 검증 + 스테이션 점유 + INBOUND_TASK 자동 발행
     @Transactional
     public void receiveBcrRead(BcrReadDto dto) {
         LocalDateTime now = LocalDateTime.now();
@@ -60,7 +73,74 @@ public class RcsInboundService {
         // 3. 스테이션 점유(BUSY) + 현재 eqpPallet 기록
         stationMapper.updateStatusAndPallet(dto.getStationId(), "BUSY", dto.getEqpPalletId(), now);
 
+        rcsMsgLogService.logReceive("BCR_READ", dto.getMessageId(), dto.getRefMessageId(),
+                dto.getStationId(), dto.getEqpPalletId(), null, dto, null);
+
         log.info("[RCS] BCR_READ 처리 | stationId={} eqpPalletId={} → palletId={} taskId={}",
                 dto.getStationId(), dto.getEqpPalletId(), map.getPalletId(), map.getTaskId());
+
+        // 4. INBOUND_TASK 자동 발행 (API 03)
+        sendInboundTask(dto, map);
+    }
+
+    // API 03 · INBOUND_TASK 발행 + API 04 INBOUND_TASK_ACK 동기 수신
+    private void sendInboundTask(BcrReadDto bcrRead, WcsEqpPalletMap map) {
+        String wcsTaskId = map.getEqpPalletId() + "-" + map.getCycleNo();
+
+        List<WcsInboundOrderD> lines = orderDMapper.findActiveByPalletId(map.getPalletId());
+        if (lines.isEmpty()) {
+            throw new RcsProtocolException("입고 지시 상세 없음 | palletId=" + map.getPalletId());
+        }
+        WcsInboundOrderD line = lines.get(0); // 팔레트당 1라인 전제 (다품목 팔레트는 향후 확장)
+
+        InboundTaskDto taskDto = InboundTaskDto.builder()
+                .messageType("INBOUND_TASK")
+                .messageId(UUID.randomUUID().toString())
+                .refMessageId(bcrRead.getMessageId())
+                .sequenceNo(1)
+                .timestamp(LocalDateTime.now())
+                .wcsTaskId(wcsTaskId)
+                .stationId(bcrRead.getStationId())
+                .eqpPalletId(map.getEqpPalletId())
+                .result("ACCEPTED")
+                .itemCode(line.getSkuCode())
+                .lotId(line.getLotId())
+                .qty(line.getQty())
+                .expireDate(line.getExpireDate())
+                .build();
+
+        rcsMsgLogService.logSend("INBOUND_TASK", taskDto.getMessageId(), taskDto.getRefMessageId(),
+                taskDto.getStationId(), taskDto.getEqpPalletId(), wcsTaskId, taskDto, taskDto.getResult());
+        log.info("[RCS] INBOUND_TASK 발행 | wcsTaskId={} eqpPalletId={} itemCode={} qty={}",
+                wcsTaskId, map.getEqpPalletId(), line.getSkuCode(), line.getQty());
+
+        InboundTaskAckDto ack = rcsClient.sendInboundTask(taskDto);
+
+        rcsMsgLogService.logReceive("INBOUND_TASK_ACK", ack.getMessageId(), ack.getRefMessageId(),
+                taskDto.getStationId(), taskDto.getEqpPalletId(), wcsTaskId, ack, ack.getResult());
+        log.info("[RCS] INBOUND_TASK_ACK 수신 | wcsTaskId={} result={} shuttleId={}",
+                ack.getWcsTaskId(), ack.getResult(), ack.getShuttleId());
+
+        if (!"ACCEPTED".equals(ack.getResult())) {
+            throw new RcsProtocolException("INBOUND_TASK 거부 | wcsTaskId=" + wcsTaskId
+                    + " message=" + ack.getMessage());
+        }
+
+        // 5. eqpPallet 상태 전이 MAPPED → IN_PROGRESS
+        eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "IN_PROGRESS");
+
+        eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
+                .eqpPalletId(map.getEqpPalletId())
+                .cycleNo(map.getCycleNo())
+                .taskId(map.getTaskId())
+                .palletId(map.getPalletId())
+                .mapStatus("IN_PROGRESS")
+                .location("STATION")
+                .mappedAt(map.getMappedAt())
+                .eventType("TASK_ASSIGNED")
+                .eventAt(LocalDateTime.now())
+                .eventBy("RCS")
+                .note("wcsTaskId=" + wcsTaskId + " shuttleId=" + ack.getShuttleId())
+                .build());
     }
 }

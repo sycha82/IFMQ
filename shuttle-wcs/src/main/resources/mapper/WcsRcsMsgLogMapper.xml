@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsRcsMsgLogMapper">
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_rcs_msg_log
+    </select>
+
+    <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsRcsMsgLog"
+            useGeneratedKeys="true" keyProperty="logId">
+        INSERT INTO biz.wcs_rcs_msg_log (
+            direction, api_name, message_id, ref_message_id,
+            station_id, eqp_pallet_id, wcs_task_id,
+            payload, result
+        ) VALUES (
+            #{direction}, #{apiName}, #{messageId}, #{refMessageId},
+            #{stationId}, #{eqpPalletId}, #{wcsTaskId},
+            #{payload}::jsonb, #{result}
+        )
+    </insert>
+
+</mapper>
