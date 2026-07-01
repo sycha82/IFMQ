@@ -1,0 +1,15 @@
+server:
+  port: 9003
+
+spring:
+  main:
+    # CLI 발신 + INBOUND_TASK 수신 서버 겸용 (Phase 2에서 수신 컨트롤러 추가)
+    web-application-type: servlet
+
+rcs:
+  shuttle:
+    base-url: ${SHUTTLE_WCS_BASE_URL:http://localhost:9002}
+
+logging:
+  level:
+    com.example.rcsmock: INFO

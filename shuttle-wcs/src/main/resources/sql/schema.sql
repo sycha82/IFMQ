@@ -202,3 +202,25 @@ CREATE INDEX IF NOT EXISTS ix_wcs_eqp_pallet_map_h_eqp
     ON biz.wcs_eqp_pallet_map_h (eqp_pallet_id, cycle_no);
 CREATE INDEX IF NOT EXISTS ix_wcs_eqp_pallet_map_h_pallet
     ON biz.wcs_eqp_pallet_map_h (pallet_id);
+
+
+-- ⑥ wcs_station — 입고/출고 스테이션 상태 (RCS STATION_STATUS 수신 반영)
+CREATE TABLE IF NOT EXISTS biz.wcs_station (
+    station_id         VARCHAR(30)  NOT NULL,
+    station_type       VARCHAR(20)  NOT NULL DEFAULT 'INBOUND',   -- INBOUND | OUTBOUND
+    status             VARCHAR(20)  NOT NULL DEFAULT 'AVAILABLE',  -- AVAILABLE | BUSY | DOWN
+    cur_eqp_pallet_id  VARCHAR(30)  NULL,
+    status_changed_at  TIMESTAMP    NULL,
+    created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by         VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    updated_by         VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    CONSTRAINT pk_wcs_station PRIMARY KEY (station_id)
+);
+
+COMMENT ON TABLE  biz.wcs_station IS '스테이션 상태 — RCS/설비ECS STATION_STATUS 수신분 반영 (스테이션 마스터 겸용, 최초 보고 시 자동 생성)';
+COMMENT ON COLUMN biz.wcs_station.station_id        IS '스테이션 ID';
+COMMENT ON COLUMN biz.wcs_station.station_type      IS 'INBOUND · OUTBOUND';
+COMMENT ON COLUMN biz.wcs_station.status            IS 'AVAILABLE · BUSY · DOWN';
+COMMENT ON COLUMN biz.wcs_station.cur_eqp_pallet_id IS 'BCR_READ로 스테이션에 진입한 현재 eqpPalletId';
+COMMENT ON COLUMN biz.wcs_station.status_changed_at IS '최근 상태 변경 시각 (RCS 보고 기준)';

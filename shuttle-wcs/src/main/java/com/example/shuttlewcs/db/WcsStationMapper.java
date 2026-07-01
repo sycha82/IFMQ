@@ -1,0 +1,26 @@
+package com.example.shuttlewcs.db;
+
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.time.LocalDateTime;
+
+@Mapper
+public interface WcsStationMapper {
+
+    WcsStation findById(@Param("stationId") String stationId);
+
+    int countAll();
+
+    // STATION_STATUS 수신 — 미존재 시 생성, 존재 시 상태 갱신 (upsert)
+    void upsertStatus(@Param("stationId") String stationId,
+                      @Param("stationType") String stationType,
+                      @Param("status") String status,
+                      @Param("changedAt") LocalDateTime changedAt);
+
+    // BCR_READ 등 내부 상태 전이 — 상태 + 현재 eqpPallet 갱신
+    void updateStatusAndPallet(@Param("stationId") String stationId,
+                               @Param("status") String status,
+                               @Param("curEqpPalletId") String curEqpPalletId,
+                               @Param("changedAt") LocalDateTime changedAt);
+}

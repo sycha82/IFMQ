@@ -15,6 +15,7 @@
         <module>wcs-app</module>
         <module>wms-mock</module>
         <module>shuttle-wcs</module>
+        <module>rcs-mock</module>
     </modules>
 
     <properties>

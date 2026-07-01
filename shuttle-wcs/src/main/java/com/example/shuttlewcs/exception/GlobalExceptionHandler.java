@@ -23,4 +23,11 @@ public class GlobalExceptionHandler {
         log.warn("[MAPPING] {}", e.getMessage());
         return ResponseEntity.badRequest().body(e.getMessage());
     }
+
+    // RCS 연계 프로토콜 검증 실패 → 400 Bad Request
+    @ExceptionHandler(RcsProtocolException.class)
+    public ResponseEntity<String> handleRcsError(RcsProtocolException e) {
+        log.warn("[RCS] {}", e.getMessage());
+        return ResponseEntity.badRequest().body(e.getMessage());
+    }
 }
