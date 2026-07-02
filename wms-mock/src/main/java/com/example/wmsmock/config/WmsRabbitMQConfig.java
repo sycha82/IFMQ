@@ -32,8 +32,8 @@ public class WmsRabbitMQConfig {
     }
 
     @Bean
-    public Binding inboundCompleteBinding(Queue inboundCompleteQueue, TopicExchange wmsExchange) {
-        return BindingBuilder.bind(inboundCompleteQueue)
+    public Binding inboundCompleteBinding(TopicExchange wmsExchange) {
+        return BindingBuilder.bind(inboundCompleteQueue())
                 .to(wmsExchange)
                 .with(props.getRoutingKey().getInboundComplete());
     }
@@ -44,8 +44,8 @@ public class WmsRabbitMQConfig {
     }
 
     @Bean
-    public Binding outboundCmdAckBinding(Queue outboundCmdAckQueue, TopicExchange wmsExchange) {
-        return BindingBuilder.bind(outboundCmdAckQueue)
+    public Binding outboundCmdAckBinding(TopicExchange wmsExchange) {
+        return BindingBuilder.bind(outboundCmdAckQueue())
                 .to(wmsExchange)
                 .with(props.getRoutingKey().getOutboundCmdAck());
     }
