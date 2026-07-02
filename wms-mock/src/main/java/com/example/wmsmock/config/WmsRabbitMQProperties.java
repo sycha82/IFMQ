@@ -19,6 +19,7 @@ public class WmsRabbitMQProperties {
     @Setter
     public static class Queue {
         private String inboundComplete;
+        private String outboundCmdAck;
     }
 
     @Getter
@@ -27,5 +28,7 @@ public class WmsRabbitMQProperties {
         private String inboundCmd;
         private String inboundComplete;
         private String inboundCancel;
+        private String outboundCmd;
+        private String outboundCmdAck;
     }
 }

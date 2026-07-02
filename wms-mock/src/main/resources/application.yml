@@ -11,10 +11,13 @@ wms:
     exchange: wcs.topic
     queue:
       inbound-complete: wms.queue.inbound.complete
+      outbound-cmd-ack: wms.queue.outbound.cmd.ack
     routing-key:
       inbound-cmd: wms.inbound.cmd
       inbound-complete: wcs.inbound.complete
       inbound-cancel: wms.inbound.cancel
+      outbound-cmd: wms.outbound.cmd
+      outbound-cmd-ack: wcs.outbound.cmd.ack
 
 logging:
   level:

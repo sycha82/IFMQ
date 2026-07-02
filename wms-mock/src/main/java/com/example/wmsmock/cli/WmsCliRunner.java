@@ -2,8 +2,10 @@ package com.example.wmsmock.cli;
 
 import com.example.common.dto.InboundCancelDto;
 import com.example.common.dto.InboundCmdDto;
+import com.example.common.dto.OutboundCmdDto;
 import com.example.wmsmock.producer.InboundCancelPublisher;
 import com.example.wmsmock.producer.InboundCmdPublisher;
+import com.example.wmsmock.producer.OutboundCmdPublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ public class WmsCliRunner implements CommandLineRunner {
 
     private final InboundCmdPublisher inboundCmdPublisher;
     private final InboundCancelPublisher inboundCancelPublisher;
+    private final OutboundCmdPublisher outboundCmdPublisher;
     private final ObjectMapper objectMapper;
 
     private static final String DEFAULT_INBOUND_CMD = """
@@ -53,12 +56,30 @@ public class WmsCliRunner implements CommandLineRunner {
               "reason": "재고 오류로 인한 입고 취소"
             }""";
 
+    private static final String DEFAULT_OUTBOUND_CMD = """
+            {
+              "messageType": "OUTBOUND_CMD",
+              "messageId": "MSG-OUT-20260422-0001",
+              "refMessageId": null,
+              "sequenceNo": 1,
+              "timestamp": "2026-04-22T10:00:00",
+              "taskId": "WMS-OUT-20260422-001",
+              "items": [
+                {
+                  "palletId": "PLT-20260422-001",
+                  "itemCode": "ITEM-20260422-001",
+                  "lotId": "LOT-20260422-001",
+                  "pickQty": 36
+                }
+              ]
+            }""";
+
     @Override
     public void run(String... args) {
         Scanner scanner = new Scanner(System.in);
         System.out.println("\n========================================");
         System.out.println("  WMS Mock CLI (Ctrl+C 로 종료)");
-        System.out.println("  * INBOUND_COMPLETE 수신은 자동으로 출력됩니다.");
+        System.out.println("  * INBOUND_COMPLETE · OUTBOUND_CMD_ACK 수신은 자동으로 출력됩니다.");
         System.out.println("========================================");
 
         while (true) {
@@ -68,6 +89,7 @@ public class WmsCliRunner implements CommandLineRunner {
             switch (choice) {
                 case "1" -> sendInboundCmd(scanner);
                 case "2" -> sendInboundCancel(scanner);
+                case "3" -> sendOutboundCmd(scanner);
                 case "0" -> {
                     System.out.println("종료합니다.");
                     return;
@@ -81,6 +103,7 @@ public class WmsCliRunner implements CommandLineRunner {
         System.out.println("\n----------------------------------------");
         System.out.println("  1. INBOUND_CMD 발행");
         System.out.println("  2. INBOUND_CANCEL 발행");
+        System.out.println("  3. OUTBOUND_CMD 발행 (출고 지시 · Case A)");
         System.out.println("  0. 종료");
         System.out.print("선택 > ");
     }
@@ -111,6 +134,22 @@ public class WmsCliRunner implements CommandLineRunner {
         try {
             InboundCancelDto dto = objectMapper.readValue(json, InboundCancelDto.class);
             inboundCancelPublisher.send(dto);
+            System.out.println("발행 완료. messageId=" + dto.getMessageId());
+        } catch (Exception e) {
+            System.out.println("오류: " + e.getMessage());
+        }
+    }
+
+    private void sendOutboundCmd(Scanner scanner) {
+        System.out.println("\n[OUTBOUND_CMD] JSON 붙여넣기 ('default' 입력 시 아래 기본값 사용):");
+        System.out.println(DEFAULT_OUTBOUND_CMD);
+        System.out.print("> ");
+
+        String json = readJsonInput(scanner, DEFAULT_OUTBOUND_CMD);
+
+        try {
+            OutboundCmdDto dto = objectMapper.readValue(json, OutboundCmdDto.class);
+            outboundCmdPublisher.send(dto);
             System.out.println("발행 완료. messageId=" + dto.getMessageId());
         } catch (Exception e) {
             System.out.println("오류: " + e.getMessage());

@@ -39,6 +39,18 @@ public class WmsRabbitMQConfig {
     }
 
     @Bean
+    public Queue outboundCmdAckQueue() {
+        return new Queue(props.getQueue().getOutboundCmdAck(), true);
+    }
+
+    @Bean
+    public Binding outboundCmdAckBinding(Queue outboundCmdAckQueue, TopicExchange wmsExchange) {
+        return BindingBuilder.bind(outboundCmdAckQueue)
+                .to(wmsExchange)
+                .with(props.getRoutingKey().getOutboundCmdAck());
+    }
+
+    @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())

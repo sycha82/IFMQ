@@ -23,10 +23,13 @@ wcs:
     queue:
       inbound-cmd: wcs.queue.inbound.cmd
       inbound-cancel: wcs.queue.inbound.cancel
+      outbound-cmd: wcs.queue.outbound.cmd
     routing-key:
       inbound-cmd: wms.inbound.cmd
       inbound-complete: wcs.inbound.complete
       inbound-cancel: wms.inbound.cancel
+      outbound-cmd: wms.outbound.cmd
+      outbound-cmd-ack: wcs.outbound.cmd.ack
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml

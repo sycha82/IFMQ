@@ -33,6 +33,18 @@ public class RcsCliRunner implements CommandLineRunner {
               "status": "AVAILABLE"
             }""";
 
+    private static final String DEFAULT_STATION_STATUS_OUT = """
+            {
+              "messageType": "STATION_STATUS",
+              "messageId": "RCS-STS-OUT-0001",
+              "refMessageId": null,
+              "sequenceNo": 1,
+              "timestamp": "2026-04-22T09:20:00",
+              "stationId": "STATION-OUT-01",
+              "stationType": "OUTBOUND",
+              "status": "AVAILABLE"
+            }""";
+
     private static final String DEFAULT_BCR_READ = """
             {
               "messageType": "BCR_READ",
@@ -70,9 +82,10 @@ public class RcsCliRunner implements CommandLineRunner {
             String choice = scanner.nextLine().trim();
 
             switch (choice) {
-                case "1" -> sendStationStatus(scanner);
+                case "1" -> sendStationStatus(scanner, DEFAULT_STATION_STATUS);
                 case "2" -> sendBcrRead(scanner);
                 case "3" -> sendInboundDone(scanner);
+                case "4" -> sendStationStatus(scanner, DEFAULT_STATION_STATUS_OUT);
                 case "0" -> {
                     System.out.println("종료합니다.");
                     return;
@@ -84,19 +97,20 @@ public class RcsCliRunner implements CommandLineRunner {
 
     private void printMenu() {
         System.out.println("\n----------------------------------------");
-        System.out.println("  1. STATION_STATUS 발행 (API 01)");
+        System.out.println("  1. STATION_STATUS (입고) 발행 (API 01)");
         System.out.println("  2. BCR_READ 발행 (API 02)");
         System.out.println("  3. INBOUND_DONE 발행 (API 05)");
+        System.out.println("  4. STATION_STATUS (출고) 발행 (출고 PRE)");
         System.out.println("  0. 종료");
         System.out.print("선택 > ");
     }
 
-    private void sendStationStatus(Scanner scanner) {
+    private void sendStationStatus(Scanner scanner, String defaultJson) {
         System.out.println("\n[STATION_STATUS] JSON 붙여넣기 ('default' 입력 시 아래 기본값 사용):");
-        System.out.println(DEFAULT_STATION_STATUS);
+        System.out.println(defaultJson);
         System.out.print("> ");
 
-        String json = readJsonInput(scanner, DEFAULT_STATION_STATUS);
+        String json = readJsonInput(scanner, defaultJson);
         try {
             StationStatusDto dto = objectMapper.readValue(json, StationStatusDto.class);
             String resp = shuttleWcsRcsClient.sendStationStatus(dto);

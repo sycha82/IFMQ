@@ -51,6 +51,18 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue outboundCmdQueue() {
+        return new Queue(props.getQueue().getOutboundCmd(), true);
+    }
+
+    @Bean
+    public Binding outboundCmdBinding(TopicExchange wcsExchange) {
+        return BindingBuilder.bind(outboundCmdQueue())
+                .to(wcsExchange)
+                .with(props.getRoutingKey().getOutboundCmd());
+    }
+
+    @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())

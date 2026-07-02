@@ -1,6 +1,8 @@
 package com.example.wcsapp.client;
 
 import com.example.common.dto.InboundCmdDto;
+import com.example.common.dto.OutboundCmdAckDto;
+import com.example.common.dto.OutboundCmdDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,4 +14,8 @@ public interface ShuttleWcsClient {
     // INBOUND_CMD 수신분을 shuttle-wcs 입고 처리로 위임
     @PostMapping("/internal/inbound-order")
     void notifyInboundOrder(@RequestBody InboundCmdDto dto);
+
+    // OUTBOUND_CMD 수신분을 shuttle-wcs 매핑 조회로 위임 → OUTBOUND_CMD_ACK 반환
+    @PostMapping("/internal/outbound-order")
+    OutboundCmdAckDto notifyOutboundOrder(@RequestBody OutboundCmdDto dto);
 }

@@ -20,6 +20,7 @@ public class RabbitMQProperties {
     public static class Queue {
         private String inboundCmd;
         private String inboundCancel;
+        private String outboundCmd;
     }
 
     @Getter
@@ -28,5 +29,7 @@ public class RabbitMQProperties {
         private String inboundCmd;
         private String inboundComplete;
         private String inboundCancel;
+        private String outboundCmd;
+        private String outboundCmdAck;
     }
 }
