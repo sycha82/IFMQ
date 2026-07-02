@@ -276,3 +276,62 @@ COMMENT ON COLUMN biz.wcs_inventory.sku         IS '품목 코드';
 COMMENT ON COLUMN biz.wcs_inventory.location_id IS '재고 위치 — 현재는 eqp_pallet_id (팔레트 단위 랙 재고)';
 COMMENT ON COLUMN biz.wcs_inventory.quantity    IS '재고 수량 (0 이상)';
 COMMENT ON COLUMN biz.wcs_inventory.uom         IS '수량 단위 (기본 EA)';
+
+
+-- ⑨ wcs_outbound_order_h — 출고 지시 헤더 (task 레벨 집계) · 입고 헤더와 동일 구조
+CREATE TABLE IF NOT EXISTS biz.wcs_outbound_order_h (
+    task_id          VARCHAR(30)  NOT NULL,
+    cmd_status       VARCHAR(20)  NOT NULL DEFAULT 'RECEIVED',
+    recv_message_id  VARCHAR(50)  NOT NULL,
+    last_message_id  VARCHAR(50)  NOT NULL,
+    recv_count       SMALLINT     NOT NULL DEFAULT 1,
+    received_at      TIMESTAMP    NOT NULL DEFAULT now(),
+    completed_at     TIMESTAMP    NULL,
+    created_at       TIMESTAMP    NOT NULL DEFAULT now(),
+    updated_at       TIMESTAMP    NOT NULL DEFAULT now(),
+    created_by       VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    updated_by       VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    CONSTRAINT pk_wcs_outbound_order_h PRIMARY KEY (task_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_wcs_outbound_order_h__status
+    ON biz.wcs_outbound_order_h (cmd_status, received_at);
+
+COMMENT ON TABLE  biz.wcs_outbound_order_h IS '출고 지시 헤더 — task 단위 메시지 추적 + 집계 결과 (WMS OUTBOUND_CMD)';
+COMMENT ON COLUMN biz.wcs_outbound_order_h.task_id          IS 'WMS 출고 지시 task_id';
+COMMENT ON COLUMN biz.wcs_outbound_order_h.cmd_status       IS 'RECEIVED · COMPLETED (task 내 활성 PalletId 전체 출고 완료 여부 집계)';
+COMMENT ON COLUMN biz.wcs_outbound_order_h.recv_message_id  IS '최초 수신 OUTBOUND_CMD message_id (if_msg_log 역추적)';
+COMMENT ON COLUMN biz.wcs_outbound_order_h.last_message_id  IS '최종 수신 message_id (재수신 시 갱신)';
+
+
+-- ⑨-1 wcs_outbound_order_d — 출고 지시 상세 (PalletId 라인 + 라이프사이클) · 입고 상세와 동일 구조
+CREATE TABLE IF NOT EXISTS biz.wcs_outbound_order_d (
+    task_id       VARCHAR(30)  NOT NULL,
+    pallet_id     VARCHAR(30)  NOT NULL,
+    sku_code      VARCHAR(30)  NOT NULL,
+    lot_id        VARCHAR(30)  NOT NULL DEFAULT 'N/A',
+    line_no       SMALLINT     NULL,
+    qty           INTEGER      NOT NULL,
+    expire_date   DATE         NULL,
+    mapped_at     TIMESTAMP    NULL,
+    completed_at  TIMESTAMP    NULL,
+    cancelled_at  TIMESTAMP    NULL,
+    cancel_reason VARCHAR(200) NULL,
+    created_at    TIMESTAMP    NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMP    NOT NULL DEFAULT now(),
+    created_by    VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    updated_by    VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    CONSTRAINT pk_wcs_outbound_order_d PRIMARY KEY (task_id, pallet_id, sku_code, lot_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_wcs_outbound_order_d__pallet
+    ON biz.wcs_outbound_order_d (pallet_id);
+
+CREATE INDEX IF NOT EXISTS ix_wcs_outbound_order_d__pending_map
+    ON biz.wcs_outbound_order_d (pallet_id)
+    WHERE mapped_at IS NULL AND cancelled_at IS NULL;
+
+COMMENT ON TABLE  biz.wcs_outbound_order_d IS '출고 지시 상세 — OUTBOUND_CMD items 원본 라인 + PalletId 라이프사이클 (팔렛트 전체 출고)';
+COMMENT ON COLUMN biz.wcs_outbound_order_d.qty          IS '출고 요청 수량 (OUTBOUND_CMD pickQty)';
+COMMENT ON COLUMN biz.wcs_outbound_order_d.completed_at IS 'OUTBOUND_COMPLETE 발송 시각 (이 PalletId 라인 기준)';
+COMMENT ON COLUMN biz.wcs_outbound_order_d.cancelled_at IS '취소 시각 (PalletId 단위)';

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsOutboundOrderDMapper">
+
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsOutboundOrderD">
+        <id     property="taskId"       column="task_id"/>
+        <id     property="palletId"     column="pallet_id"/>
+        <id     property="skuCode"      column="sku_code"/>
+        <id     property="lotId"        column="lot_id"/>
+        <result property="lineNo"       column="line_no"/>
+        <result property="qty"          column="qty"/>
+        <result property="expireDate"   column="expire_date"/>
+        <result property="mappedAt"     column="mapped_at"/>
+        <result property="completedAt"  column="completed_at"/>
+        <result property="cancelledAt"  column="cancelled_at"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="createdAt"    column="created_at"/>
+        <result property="updatedAt"    column="updated_at"/>
+        <result property="createdBy"    column="created_by"/>
+        <result property="updatedBy"    column="updated_by"/>
+    </resultMap>
+
+    <select id="findByTaskId" resultMap="rs">
+        SELECT * FROM biz.wcs_outbound_order_d
+        WHERE task_id = #{taskId}
+        ORDER BY line_no
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_outbound_order_d
+    </select>
+
+    <insert id="insert" parameterType="com.example.shuttlewcs.db.WcsOutboundOrderD">
+        INSERT INTO biz.wcs_outbound_order_d (
+            task_id, pallet_id, sku_code, lot_id,
+            line_no, qty, expire_date,
+            created_by, updated_by
+        ) VALUES (
+            #{taskId}, #{palletId}, #{skuCode},
+            COALESCE(#{lotId}, 'N/A'),
+            #{lineNo}, #{qty}, #{expireDate},
+            COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
+        )
+    </insert>
+
+    <!-- OUTBOUND_COMPLETE 시 완료 처리 (palletId 기준 미취소·미완료 전체) -->
+    <update id="updateCompletedByPalletId">
+        UPDATE biz.wcs_outbound_order_d
+        SET completed_at = #{completedAt},
+            updated_at   = CURRENT_TIMESTAMP
+        WHERE pallet_id = #{palletId}
+          AND cancelled_at IS NULL
+          AND completed_at IS NULL
+    </update>
+
+    <!-- 출고 지시 완료 집계 — 미취소·미완료(진행중) 라인 수 -->
+    <select id="countActiveIncompleteByTaskId" resultType="int">
+        SELECT COUNT(1) FROM biz.wcs_outbound_order_d
+        WHERE task_id = #{taskId}
+          AND cancelled_at IS NULL
+          AND completed_at IS NULL
+    </select>
+
+</mapper>
