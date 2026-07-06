@@ -10,6 +10,9 @@ public interface WcsStationMapper {
 
     WcsStation findById(@Param("stationId") String stationId);
 
+    // 출고 시작 destStation 지정용 — 해당 타입 스테이션 1건 (가용성 무관)
+    WcsStation findFirstByType(@Param("stationType") String stationType);
+
     int countAll();
 
     // STATION_STATUS 수신 — 미존재 시 생성, 존재 시 상태 갱신 (upsert)

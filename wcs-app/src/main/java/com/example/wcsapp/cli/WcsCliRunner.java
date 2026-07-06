@@ -1,6 +1,7 @@
 package com.example.wcsapp.cli;
 
 import com.example.common.dto.InboundCompleteDto;
+import com.example.wcsapp.client.ShuttleWcsClient;
 import com.example.wcsapp.producer.InboundCompleteProducer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.Scanner;
 public class WcsCliRunner implements CommandLineRunner {
 
     private final InboundCompleteProducer inboundCompleteProducer;
+    private final ShuttleWcsClient shuttleWcsClient;
     private final ObjectMapper objectMapper;
 
     private static final String DEFAULT_INBOUND_COMPLETE = """
@@ -47,6 +49,7 @@ public class WcsCliRunner implements CommandLineRunner {
 
             switch (choice) {
                 case "1" -> sendInboundComplete(scanner);
+                case "2" -> startOutbound();
                 case "0" -> {
                     System.out.println("종료합니다.");
                     return;
@@ -59,6 +62,7 @@ public class WcsCliRunner implements CommandLineRunner {
     private void printMenu() {
         System.out.println("\n----------------------------------------");
         System.out.println("  1. INBOUND_COMPLETE 발행");
+        System.out.println("  2. 출고 시작 (수신된 출고 지시 OUTBOUND_TASK 순차 발행)");
         System.out.println("  0. 종료");
         System.out.print("선택 > ");
     }
@@ -74,6 +78,16 @@ public class WcsCliRunner implements CommandLineRunner {
             InboundCompleteDto dto = objectMapper.readValue(json, InboundCompleteDto.class);
             inboundCompleteProducer.send(dto);
             System.out.println("발행 완료. messageId=" + dto.getMessageId() + " (DB 로그 기록됨)");
+        } catch (Exception e) {
+            System.out.println("오류: " + e.getMessage());
+        }
+    }
+
+    private void startOutbound() {
+        System.out.println("\n[출고 시작] 수신된(RECEIVED) 출고 지시를 순차 발송합니다...");
+        try {
+            String result = shuttleWcsClient.startOutbound();
+            System.out.println(result);
         } catch (Exception e) {
             System.out.println("오류: " + e.getMessage());
         }

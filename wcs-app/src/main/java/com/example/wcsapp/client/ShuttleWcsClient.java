@@ -18,4 +18,8 @@ public interface ShuttleWcsClient {
     // OUTBOUND_CMD 수신분을 shuttle-wcs 매핑 조회로 위임 → OUTBOUND_CMD_ACK 반환
     @PostMapping("/internal/outbound-order")
     OutboundCmdAckDto notifyOutboundOrder(@RequestBody OutboundCmdDto dto);
+
+    // 출고 시작 — 수신된(RECEIVED) 출고 지시를 순차 OUTBOUND_TASK 발행 위임
+    @PostMapping("/internal/outbound-start")
+    String startOutbound();
 }
