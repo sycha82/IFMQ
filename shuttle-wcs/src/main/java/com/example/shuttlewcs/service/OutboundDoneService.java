@@ -6,7 +6,6 @@ import com.example.shuttlewcs.db.WcsEqpPalletMap;
 import com.example.shuttlewcs.db.WcsEqpPalletMapH;
 import com.example.shuttlewcs.db.WcsEqpPalletMapHMapper;
 import com.example.shuttlewcs.db.WcsEqpPalletMapMapper;
-import com.example.shuttlewcs.db.WcsInventoryMapper;
 import com.example.shuttlewcs.db.WcsOutboundOrderD;
 import com.example.shuttlewcs.db.WcsOutboundOrderDMapper;
 import com.example.shuttlewcs.db.WcsOutboundOrderHMapper;
@@ -29,7 +28,6 @@ public class OutboundDoneService {
     private final WcsEqpPalletMapHMapper eqpPalletMapHMapper;
     private final WcsOutboundOrderDMapper orderDMapper;
     private final WcsOutboundOrderHMapper orderHMapper;
-    private final WcsInventoryMapper inventoryMapper;
     private final RcsMsgLogService rcsMsgLogService;
 
     /**
@@ -73,9 +71,7 @@ public class OutboundDoneService {
 
         eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "OUTBOUND");        // IN_PROGRESS → OUTBOUND
         eqpPalletMapMapper.updateLocation(map.getEqpPalletId(), "PICKING_ZONE");  // OUTBOUNDING → PICKING_ZONE
-
-        // 랙 재고 제거 — 팔렛이 랙에서 배출되어 해당 위치(eqp_pallet_id) 재고 전체 삭제
-        int removed = inventoryMapper.deleteByLocation(map.getEqpPalletId());
+        // 랙 재고는 출고 시작(OUTBOUND_TASK) 시점에 이미 제외됨 — 여기서는 재고 미조작
 
         eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
                 .eqpPalletId(map.getEqpPalletId())
@@ -99,8 +95,8 @@ public class OutboundDoneService {
             }
         }
 
-        log.info("[RCS] OUTBOUND_DONE 완료 | eqpPalletId={} palletId={} 완료라인={}건 랙재고삭제={}건",
-                map.getEqpPalletId(), map.getPalletId(), lines.size(), removed);
+        log.info("[RCS] OUTBOUND_DONE 완료 | eqpPalletId={} palletId={} 완료라인={}건",
+                map.getEqpPalletId(), map.getPalletId(), lines.size());
 
         return replyDoneAck(dto, "OK", "");
     }
