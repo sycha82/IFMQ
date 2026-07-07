@@ -3,6 +3,8 @@ package com.example.rcsmock.cli;
 import com.example.common.dto.BcrReadDto;
 import com.example.common.dto.InboundDoneAckDto;
 import com.example.common.dto.InboundDoneDto;
+import com.example.common.dto.OutboundDoneAckDto;
+import com.example.common.dto.OutboundDoneDto;
 import com.example.common.dto.StationStatusDto;
 import com.example.rcsmock.client.ShuttleWcsRcsClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,6 +72,21 @@ public class RcsCliRunner implements CommandLineRunner {
               "failReason": null
             }""";
 
+    private static final String DEFAULT_OUTBOUND_DONE = """
+            {
+              "messageType": "OUTBOUND_DONE",
+              "messageId": "RCS-OUT-DONE-0001",
+              "refMessageId": null,
+              "sequenceNo": 1,
+              "timestamp": "2026-04-22T10:08:15",
+              "wcsTaskId": "EQPPLT-OUT-01-1",
+              "eqpPalletId": "EQPPLT-OUT-01",
+              "shuttleId": "SHUTTLE-01",
+              "destStation": "STATION-OUT-01",
+              "status": "COMPLETED",
+              "failReason": null
+            }""";
+
     @Override
     public void run(String... args) {
         Scanner scanner = new Scanner(System.in);
@@ -86,6 +103,7 @@ public class RcsCliRunner implements CommandLineRunner {
                 case "2" -> sendBcrRead(scanner);
                 case "3" -> sendInboundDone(scanner);
                 case "4" -> sendStationStatus(scanner, DEFAULT_STATION_STATUS_OUT);
+                case "5" -> sendOutboundDone(scanner);
                 case "0" -> {
                     System.out.println("종료합니다.");
                     return;
@@ -101,6 +119,7 @@ public class RcsCliRunner implements CommandLineRunner {
         System.out.println("  2. BCR_READ 발행 (API 02)");
         System.out.println("  3. INBOUND_DONE 발행 (API 05)");
         System.out.println("  4. STATION_STATUS (출고) 발행 (출고 PRE)");
+        System.out.println("  5. OUTBOUND_DONE 발행 (출고 API 05)");
         System.out.println("  0. 종료");
         System.out.print("선택 > ");
     }
@@ -145,6 +164,22 @@ public class RcsCliRunner implements CommandLineRunner {
             InboundDoneDto dto = objectMapper.readValue(json, InboundDoneDto.class);
             InboundDoneAckDto ack = shuttleWcsRcsClient.sendInboundDone(dto);
             System.out.println("응답(INBOUND_DONE_ACK): wcsTaskId=" + ack.getWcsTaskId()
+                    + " result=" + ack.getResult() + " message=" + ack.getMessage());
+        } catch (Exception e) {
+            System.out.println("오류: " + e.getMessage());
+        }
+    }
+
+    private void sendOutboundDone(Scanner scanner) {
+        System.out.println("\n[OUTBOUND_DONE] JSON 붙여넣기 ('default' 입력 시 아래 기본값 사용):");
+        System.out.println(DEFAULT_OUTBOUND_DONE);
+        System.out.print("> ");
+
+        String json = readJsonInput(scanner, DEFAULT_OUTBOUND_DONE);
+        try {
+            OutboundDoneDto dto = objectMapper.readValue(json, OutboundDoneDto.class);
+            OutboundDoneAckDto ack = shuttleWcsRcsClient.sendOutboundDone(dto);
+            System.out.println("응답(OUTBOUND_DONE_ACK): wcsTaskId=" + ack.getWcsTaskId()
                     + " result=" + ack.getResult() + " message=" + ack.getMessage());
         } catch (Exception e) {
             System.out.println("오류: " + e.getMessage());

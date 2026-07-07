@@ -11,6 +11,9 @@ public interface WcsOutboundOrderDMapper {
 
     List<WcsOutboundOrderD> findByTaskId(@Param("taskId") String taskId);
 
+    // OUTBOUND_DONE 완료 처리용 — palletId 기준 미취소·미완료 활성 라인 조회
+    List<WcsOutboundOrderD> findActiveByPalletId(@Param("palletId") String palletId);
+
     int countAll();
 
     void insert(WcsOutboundOrderD detail);
