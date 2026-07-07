@@ -30,4 +30,10 @@
             updated_at = CURRENT_TIMESTAMP
     </insert>
 
+    <!-- OUTBOUND_DONE 랙 재고 제거 — 팔렛 배출로 해당 위치(eqp_pallet_id) 재고 전체 삭제 -->
+    <delete id="deleteByLocation">
+        DELETE FROM biz.wcs_inventory
+        WHERE location_id = #{locationId}
+    </delete>
+
 </mapper>

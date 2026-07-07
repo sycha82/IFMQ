@@ -16,4 +16,7 @@ public interface WcsInventoryMapper {
                    @Param("locationId") String locationId,
                    @Param("qty") Integer qty,
                    @Param("uom") String uom);
+
+    // OUTBOUND_DONE 시 랙 재고 제거 — 팔렛이 랙에서 배출되어 해당 위치 재고 전체 삭제
+    int deleteByLocation(@Param("locationId") String locationId);
 }
