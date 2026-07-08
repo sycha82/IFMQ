@@ -5,11 +5,12 @@
 <mapper namespace="com.example.shuttlewcs.db.WcsInventoryMapper">
 
     <resultMap id="rs" type="com.example.shuttlewcs.db.WcsInventory">
-        <id     property="sku"        column="sku"/>
-        <id     property="locationId" column="location_id"/>
-        <result property="quantity"   column="quantity"/>
-        <result property="uom"        column="uom"/>
-        <result property="updatedAt"  column="updated_at"/>
+        <id     property="sku"         column="sku"/>
+        <id     property="locationId"  column="location_id"/>
+        <result property="quantity"    column="quantity"/>
+        <result property="reservedQty" column="reserved_qty"/>
+        <result property="uom"         column="uom"/>
+        <result property="updatedAt"   column="updated_at"/>
     </resultMap>
 
     <select id="findByPk" resultMap="rs">
@@ -29,6 +30,24 @@
             quantity   = biz.wcs_inventory.quantity + EXCLUDED.quantity,
             updated_at = CURRENT_TIMESTAMP
     </insert>
+
+    <!-- OUTBOUND_CMD 할당 시 팔렛 전체 예약 — 미예약(reserved_qty=0)인 라인만 reserved_qty=quantity 로 -->
+    <update id="reserveByLocation">
+        UPDATE biz.wcs_inventory
+        SET reserved_qty = quantity,
+            updated_at   = CURRENT_TIMESTAMP
+        WHERE location_id  = #{locationId}
+          AND reserved_qty = 0
+    </update>
+
+    <!-- 예약 여부 조회 — 해당 위치에 예약된 라인 존재 여부 -->
+    <select id="existsReservedByLocation" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM biz.wcs_inventory
+            WHERE location_id = #{locationId}
+              AND reserved_qty > 0
+        )
+    </select>
 
     <!-- OUTBOUND_DONE 랙 재고 제거 — 팔렛 배출로 해당 위치(eqp_pallet_id) 재고 전체 삭제 -->
     <delete id="deleteByLocation">

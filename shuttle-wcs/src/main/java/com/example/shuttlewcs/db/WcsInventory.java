@@ -18,7 +18,8 @@ public class WcsInventory {
 
     private String sku;                // PK
     private String locationId;         // PK (eqp_pallet_id)
-    private Long quantity;
+    private Long quantity;             // on-hand (랙 물리 재고)
+    private Long reservedQty;          // 예약 수량 (available = quantity - reservedQty)
     private String uom;
     private LocalDateTime updatedAt;
 }

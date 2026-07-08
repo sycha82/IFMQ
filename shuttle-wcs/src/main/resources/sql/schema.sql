@@ -262,20 +262,31 @@ CREATE TABLE IF NOT EXISTS biz.wcs_inventory (
     sku          VARCHAR(64)  NOT NULL,
     location_id  VARCHAR(64)  NOT NULL,
     quantity     INT8         NOT NULL DEFAULT 0,
+    reserved_qty INT8         NOT NULL DEFAULT 0,
     uom          VARCHAR(16)  NOT NULL DEFAULT 'EA',
     updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT wcs_inventory_pkey PRIMARY KEY (sku, location_id),
-    CONSTRAINT ck_biz_wcs_inventory_quantity_nonneg CHECK (quantity >= 0)
+    CONSTRAINT ck_biz_wcs_inventory_quantity_nonneg CHECK (quantity >= 0),
+    CONSTRAINT ck_wcs_inventory_reserved CHECK (reserved_qty >= 0 AND reserved_qty <= quantity)
 );
 
 CREATE INDEX IF NOT EXISTS idx_biz_wcs_inventory_location ON biz.wcs_inventory (location_id);
 CREATE INDEX IF NOT EXISTS idx_biz_wcs_inventory_sku      ON biz.wcs_inventory (sku);
 
 COMMENT ON TABLE  biz.wcs_inventory IS '재고 — INBOUND_DONE 완료 시 (sku, location_id) 단위 수량 누적. location_id=eqp_pallet_id';
-COMMENT ON COLUMN biz.wcs_inventory.sku         IS '품목 코드';
-COMMENT ON COLUMN biz.wcs_inventory.location_id IS '재고 위치 — 현재는 eqp_pallet_id (팔레트 단위 랙 재고)';
-COMMENT ON COLUMN biz.wcs_inventory.quantity    IS '재고 수량 (0 이상)';
-COMMENT ON COLUMN biz.wcs_inventory.uom         IS '수량 단위 (기본 EA)';
+COMMENT ON COLUMN biz.wcs_inventory.sku          IS '품목 코드';
+COMMENT ON COLUMN biz.wcs_inventory.location_id  IS '재고 위치 — 현재는 eqp_pallet_id (팔레트 단위 랙 재고)';
+COMMENT ON COLUMN biz.wcs_inventory.quantity     IS 'on-hand 수량 (랙 물리 재고, 0 이상)';
+COMMENT ON COLUMN biz.wcs_inventory.reserved_qty IS '예약 수량 — OUTBOUND_CMD 할당 시 팔렛 전체 예약. available = quantity - reserved_qty';
+COMMENT ON COLUMN biz.wcs_inventory.uom          IS '수량 단위 (기본 EA)';
+
+-- 가용 재고 뷰 — available = on-hand - reserved
+CREATE OR REPLACE VIEW biz.wcs_vw_available_inventory AS
+    SELECT sku, location_id, quantity, reserved_qty,
+           (quantity - reserved_qty) AS available_qty, uom, updated_at
+    FROM biz.wcs_inventory;
+
+COMMENT ON VIEW biz.wcs_vw_available_inventory IS '가용 재고 — quantity(on-hand) - reserved_qty(예약)';
 
 
 -- ⑨ wcs_outbound_order_h — 출고 지시 헤더 (task 레벨 집계) · 입고 헤더와 동일 구조

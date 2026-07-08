@@ -5,6 +5,7 @@ import com.example.common.dto.OutboundCmdDto;
 import com.example.common.dto.OutboundCmdItem;
 import com.example.shuttlewcs.db.WcsEqpPalletMap;
 import com.example.shuttlewcs.db.WcsEqpPalletMapMapper;
+import com.example.shuttlewcs.db.WcsInventoryMapper;
 import com.example.shuttlewcs.db.WcsOutboundOrderD;
 import com.example.shuttlewcs.db.WcsOutboundOrderDMapper;
 import com.example.shuttlewcs.db.WcsOutboundOrderH;
@@ -31,6 +32,7 @@ public class OutboundOrderService {
     private final WcsEqpPalletMapMapper eqpPalletMapMapper;
     private final WcsOutboundOrderHMapper orderHMapper;
     private final WcsOutboundOrderDMapper orderDMapper;
+    private final WcsInventoryMapper inventoryMapper;
 
     /**
      * OUTBOUND_CMD (API 01) 수신 — Case A · PalletId 지정.
@@ -51,7 +53,7 @@ public class OutboundOrderService {
             return buildAck(dto, "REJECTED", "이미 존재하는 출고 지시 재수신 | taskId=" + dto.getTaskId());
         }
 
-        // 2. Case A 매핑 조회 검증 (STORED 상태만 출고 가능)
+        // 2. Case A 매핑 조회 검증 (STORED 상태 + 미예약 팔렛만 출고 가능)
         List<String> reasons = new ArrayList<>();
         for (OutboundCmdItem item : items) {
             WcsEqpPalletMap map = eqpPalletMapMapper.findByPalletId(item.getPalletId());
@@ -62,6 +64,12 @@ public class OutboundOrderService {
             if (!SHIPPABLE_MAP_STATUS.equals(map.getMapStatus())) {
                 reasons.add("출고 불가 상태 palletId=" + item.getPalletId()
                         + " mapStatus=" + map.getMapStatus());
+                continue;
+            }
+            // 이미 다른 출고 지시에 예약된 팔렛이면 중복 할당 거부
+            if (inventoryMapper.existsReservedByLocation(map.getEqpPalletId())) {
+                reasons.add("이미 예약된 팔렛 palletId=" + item.getPalletId()
+                        + " (다른 출고 지시에 할당됨)");
             }
         }
         if (!reasons.isEmpty()) {
@@ -69,7 +77,7 @@ public class OutboundOrderService {
             return buildAck(dto, "REJECTED", String.join("; ", reasons));
         }
 
-        // 3. ACCEPTED — 출고 지시 헤더/상세 적재
+        // 3. ACCEPTED — 출고 지시 헤더/상세 적재 + 팔렛 전체 예약(가용재고에서 제외)
         LocalDateTime now = LocalDateTime.now();
         orderHMapper.insert(WcsOutboundOrderH.builder()
                 .taskId(dto.getTaskId())
@@ -90,6 +98,12 @@ public class OutboundOrderService {
                     .lineNo(lineNo++)
                     .qty(item.getPickQty())
                     .build());
+
+            // 팔렛 전체 예약 — reserved_qty = quantity (available → 0)
+            WcsEqpPalletMap map = eqpPalletMapMapper.findByPalletId(item.getPalletId());
+            int reserved = inventoryMapper.reserveByLocation(map.getEqpPalletId());
+            log.info("[OUTBOUND_ORDER] 재고 예약 | palletId={} eqpPalletId={} 예약라인={}건",
+                    item.getPalletId(), map.getEqpPalletId(), reserved);
         }
 
         log.info("[OUTBOUND_ORDER] ACCEPTED · 신규 적재 | taskId={} itemCount={}",

@@ -7,7 +7,6 @@ import com.example.shuttlewcs.db.WcsEqpPalletMap;
 import com.example.shuttlewcs.db.WcsEqpPalletMapH;
 import com.example.shuttlewcs.db.WcsEqpPalletMapHMapper;
 import com.example.shuttlewcs.db.WcsEqpPalletMapMapper;
-import com.example.shuttlewcs.db.WcsInventoryMapper;
 import com.example.shuttlewcs.db.WcsOutboundOrderD;
 import com.example.shuttlewcs.db.WcsOutboundOrderDMapper;
 import com.example.shuttlewcs.db.WcsOutboundOrderH;
@@ -37,7 +36,6 @@ public class OutboundStartService {
     private final WcsOutboundOrderDMapper orderDMapper;
     private final WcsEqpPalletMapMapper eqpPalletMapMapper;
     private final WcsEqpPalletMapHMapper eqpPalletMapHMapper;
-    private final WcsInventoryMapper inventoryMapper;
     private final RcsClient rcsClient;
     private final RcsMsgLogService rcsMsgLogService;
 
@@ -136,12 +134,9 @@ public class OutboundStartService {
         }
 
         // 상태 전이: eqpPallet STORED → IN_PROGRESS, location IN_RACK → OUTBOUNDING
+        // (재고는 OUTBOUND_CMD 시점에 이미 예약되어 가용에서 제외됨 — 여기서는 미조작)
         eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "IN_PROGRESS");
         eqpPalletMapMapper.updateLocation(map.getEqpPalletId(), "OUTBOUNDING");
-
-        // 랙 재고 제외: 출고 시작 시점에 가용 재고에서 제거 (이동 중 이중 할당 방지)
-        int removed = inventoryMapper.deleteByLocation(map.getEqpPalletId());
-        log.info("[OUTBOUND_START] 랙 재고 제외 | eqpPalletId={} 삭제={}건", map.getEqpPalletId(), removed);
 
         eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
                 .eqpPalletId(map.getEqpPalletId())
