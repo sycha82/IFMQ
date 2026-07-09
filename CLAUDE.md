@@ -40,8 +40,8 @@ ifmq/                        ← parent pom
 │   ├── consumer/  InboundCmdConsumer · InboundCancelConsumer · OutboundCmdConsumer
 │   ├── producer/  InboundCompleteProducer · OutboundCmdAckProducer · InboundCmdProducer(테스트용)
 │   ├── controller/ InternalController(/internal/inbound-complete) · TestController(/test/*)
-│   ├── client/    ShuttleWcsClient → shuttle-wcs 위임 (inbound-order, outbound-order, outbound-start)
-│   ├── cli/       WcsCliRunner — 1. INBOUND_COMPLETE 발행 / 2. 출고 시작
+│   ├── client/    ShuttleWcsClient → shuttle-wcs 위임 (inbound-order, outbound-order, outbound-start, inbound-start)
+│   ├── cli/       WcsCliRunner — 1. INBOUND_COMPLETE 발행 / 2. 출고 시작 / 3. 입고 시작(placeholder)
 │   └── service/db MsgLogService · IfMsgLog(Mapper)  ← if_msg_log 적재/멱등/상태전이
 │
 ├── shuttle-wcs/             ← WCS 비즈니스 모듈 (port 9002, DB=biz 스키마)
@@ -49,10 +49,11 @@ ifmq/                        ← parent pom
 │   │   ├── InboundOrderController   POST /internal/inbound-order    (wcs-app 위임 수신)
 │   │   ├── OutboundOrderController  POST /internal/outbound-order   (〃, ACK 반환)
 │   │   ├── OutboundStartController  POST /internal/outbound-start   (출고 시작 트리거)
+│   │   ├── InboundStartController   POST /internal/inbound-start    (입고 시작 — placeholder, 상태조회만)
 │   │   ├── MappingController        POST /api/mapping               (PRE03 매핑 등록)
 │   │   ├── RcsInboundController     POST /rcs/station-status · /rcs/bcr-read · /rcs/inbound-done
 │   │   └── RcsOutboundController    POST /rcs/outbound-done
-│   ├── service/  InboundOrderService · MappingService · RcsInboundService
+│   ├── service/  InboundOrderService · MappingService · RcsInboundService · InboundStartService(placeholder)
 │   │             OutboundOrderService · OutboundStartService · OutboundDoneService
 │   │             RcsMsgLogService(wcs_shuttle_msg_log SEND/RECEIVE)
 │   └── client/   RcsClient(→rcs-mock: inbound-task, outbound-task) · WcsAppClient(→wcs-app: inbound-complete)
@@ -112,6 +113,7 @@ curl -X POST http://localhost:9004/test/inbound-cmd
 curl -X POST http://localhost:9003/test/station-status-in
 curl -X POST http://localhost:9003/test/bcr-read
 curl -X POST http://localhost:9003/test/inbound-done
+curl -X POST http://localhost:9001/test/inbound-start   # placeholder — 상태 조회/로깅만
 curl -X POST http://localhost:9004/test/outbound-cmd
 curl -X POST http://localhost:9001/test/outbound-start
 curl -X POST http://localhost:9003/test/station-status-out
