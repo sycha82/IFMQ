@@ -1,10 +1,11 @@
-# IFMQ — WCS/WMS RabbitMQ 통신 모듈
+# IFMQ — 4Way 셔틀 WCS 샘플 (WMS·RCS 연계)
 
-WMS(상위 시스템)와 WCS(창고제어) 간 RabbitMQ Topic Exchange 기반 비동기 메시지 통신 샘플.
-모든 송수신 메시지는 WCS 입장에서 PostgreSQL `inf.if_msg_log` 테이블에 적재된다.
+WMS(상위)와 WCS(창고제어) 간 **RabbitMQ Topic Exchange 비동기 메시지**,
+WCS와 RCS(설비제어) 간 **REST(Feign) 동기 호출**로 구성된 4Way 셔틀 ASRS 샘플 백엔드.
 
-> 이 문서는 **서브에이전트(Task 도구) 실습용**으로 작성되었다. 모듈 경계·작업 분배 가이드·
-> 검증 명령이 명시되어 있어, 여러 서브에이전트에게 병렬로 일을 나눠주는 흐름을 연습할 수 있다.
+- WMS↔WCS 송수신 전문은 WCS 입장에서 PostgreSQL `inf.if_msg_log` 에 적재
+- WCS↔RCS 송수신 전문은 shuttle-wcs 기준으로 `biz.wcs_shuttle_msg_log` 에 적재
+- 설계 근거 문서: `4way_shuttle` 인터페이스 명세 (c1 입고 / c3 출고 외부 피킹존 Case)
 
 ---
 
@@ -13,198 +14,221 @@ WMS(상위 시스템)와 WCS(창고제어) 간 RabbitMQ Topic Exchange 기반 �
 | 항목 | 값 |
 |------|-----|
 | Java | 21 |
-| Spring Boot | 3.4.1 |
+| Spring Boot | 3.4.1 (+ Spring Cloud OpenFeign) |
 | Build | Maven (멀티 모듈) |
-| MQ | RabbitMQ 3.13-management (Docker) |
-| DB | PostgreSQL (외부, 로컬 Docker) |
-| ORM | MyBatis 3.0.3 (Mapper 인터페이스 + XML) |
+| MQ | RabbitMQ 3.13-management (Docker, 5672/15672 guest/guest) |
+| DB | PostgreSQL (외부, localhost:5438 / db=wcs / user=wcs) |
+| ORM | MyBatis 3.x (Mapper 인터페이스 + XML) |
 | 기타 | Lombok (@SuperBuilder) |
 
 ---
 
-## 2. 모듈 구조
+## 2. 모듈 구조 (5개)
 
 ```
-ifmq/                                  ← parent pom (멀티 모듈)
-├── common/                            ← 공통 DTO. Spring/MQ/DB 의존 없음
+ifmq/                        ← parent pom
+├── common/                  ← 공통 DTO만. Spring/MQ/DB 의존 없음
 │   └── com.example.common.dto
-│       ├── WcsMessageBase             ← 추상 베이스 (messageType, messageId, refMessageId, sequenceNo, timestamp)
-│       ├── InboundCmdDto              ← WMS→WCS
-│       └── InboundCompleteDto         ← WCS→WMS
+│       ├── WcsMessageBase        (messageType, messageId, refMessageId, sequenceNo, timestamp)
+│       ├── 입고: InboundCmdDto(+InboundCmdDetail), InboundCompleteDto, InboundCancelDto,
+│       │        BcrReadDto, InboundTaskDto/AckDto, InboundDoneDto/AckDto, MappingRegisterDto
+│       ├── 출고: OutboundCmdDto(+OutboundCmdItem), OutboundCmdAckDto,
+│       │        OutboundTaskDto/AckDto, OutboundDoneDto/AckDto
+│       └── 공용: StationStatusDto
 │
-├── wcs-app/                           ← WCS 메인 앱 (REST + CLI + DB), port 9001
-│   └── com.example.wcsapp
-│       ├── config/                    ← RabbitMQConfig, RabbitMQProperties
-│       ├── consumer/InboundCmdConsumer    ← INBOUND_CMD 수신 + 상태전이 + DB
-│       ├── producer/
-│       │   ├── InboundCompleteProducer    ← INBOUND_COMPLETE 발행 + DB
-│       │   └── InboundCmdProducer         ← 테스트 전용 발행기 (DB 로그 X)
-│       ├── controller/TestController      ← POST /test/inbound-cmd, /test/inbound-complete
-│       ├── cli/WcsCliRunner               ← CLI: INBOUND_COMPLETE 발행
-│       ├── service/MsgLogService          ← 로그 적재/상태전이/멱등 처리
-│       └── db/                            ← IfMsgLog, IfMsgLogMapper
+├── wcs-app/                 ← WMS 연계 MQ 어댑터 (port 9001, DB=inf.if_msg_log)
+│   ├── consumer/  InboundCmdConsumer · InboundCancelConsumer · OutboundCmdConsumer
+│   ├── producer/  InboundCompleteProducer · OutboundCmdAckProducer · InboundCmdProducer(테스트용)
+│   ├── controller/ InternalController(/internal/inbound-complete) · TestController(/test/*)
+│   ├── client/    ShuttleWcsClient → shuttle-wcs 위임 (inbound-order, outbound-order, outbound-start)
+│   ├── cli/       WcsCliRunner — 1. INBOUND_COMPLETE 발행 / 2. 출고 시작
+│   └── service/db MsgLogService · IfMsgLog(Mapper)  ← if_msg_log 적재/멱등/상태전이
 │
-└── wms-mock/                          ← WMS 시뮬레이터 (CLI 전용, DB 없음)
-    └── com.example.wmsmock
-        ├── config/                    ← WmsRabbitMQConfig, WmsRabbitMQProperties
-        ├── producer/InboundCmdPublisher       ← INBOUND_CMD 발행
-        ├── consumer/InboundCompleteConsumer   ← INBOUND_COMPLETE 수신 (화면 출력만)
-        └── cli/WmsCliRunner                    ← CLI: INBOUND_CMD 발행
+├── shuttle-wcs/             ← WCS 비즈니스 모듈 (port 9002, DB=biz 스키마)
+│   ├── controller/
+│   │   ├── InboundOrderController   POST /internal/inbound-order    (wcs-app 위임 수신)
+│   │   ├── OutboundOrderController  POST /internal/outbound-order   (〃, ACK 반환)
+│   │   ├── OutboundStartController  POST /internal/outbound-start   (출고 시작 트리거)
+│   │   ├── MappingController        POST /api/mapping               (PRE03 매핑 등록)
+│   │   ├── RcsInboundController     POST /rcs/station-status · /rcs/bcr-read · /rcs/inbound-done
+│   │   └── RcsOutboundController    POST /rcs/outbound-done
+│   ├── service/  InboundOrderService · MappingService · RcsInboundService
+│   │             OutboundOrderService · OutboundStartService · OutboundDoneService
+│   │             RcsMsgLogService(wcs_shuttle_msg_log SEND/RECEIVE)
+│   └── client/   RcsClient(→rcs-mock: inbound-task, outbound-task) · WcsAppClient(→wcs-app: inbound-complete)
+│
+├── rcs-mock/                ← RCS/설비ECS 시뮬레이터 (port 9003, DB 없음)
+│   ├── cli/  RcsCliRunner — 1. STATION_STATUS(입고) / 2. BCR_READ / 3. INBOUND_DONE
+│   │                        4. STATION_STATUS(출고) / 5. OUTBOUND_DONE
+│   └── controller/ RcsTaskController — POST /rcs/inbound-task · /rcs/outbound-task (ACK 동기 회신)
+│
+└── wms-mock/                ← WMS 시뮬레이터 (CLI 전용, DB 없음)
+    ├── cli/  WmsCliRunner — 1. INBOUND_CMD / 2. INBOUND_CANCEL / 3. OUTBOUND_CMD
+    ├── producer/ InboundCmdPublisher · InboundCancelPublisher · OutboundCmdPublisher
+    └── consumer/ InboundCompleteConsumer · OutboundCmdAckConsumer (화면 출력만)
 ```
+
+호출 방향: `wms-mock ⇄(MQ)⇄ wcs-app ⇄(Feign)⇄ shuttle-wcs ⇄(Feign/REST)⇄ rcs-mock`
 
 ---
 
 ## 3. 빌드 & 실행
 
 ```bash
-# 0. RabbitMQ 기동 (최초 1회)
-docker compose up -d                 # AMQP 5672 / Management UI 15672 (guest/guest)
+docker compose up -d                    # RabbitMQ (최초 1회)
+psql -h localhost -p 5438 -U wcs -d wcs -f shuttle-wcs/src/main/resources/sql/schema.sql
 
-# 1. 전체 빌드 — 멀티 모듈이므로 반드시 루트에서. common 먼저 빌드되어야 wcs-app/wms-mock 컴파일됨
-mvn install -DskipTests
+mvn install -DskipTests                 # 반드시 루트에서 (common 선행 빌드 필요)
 
-# 2. WCS 앱 실행 (터미널 1)
-cd wcs-app && mvn spring-boot:run     # http://localhost:9001
-
-# 3. WMS Mock 실행 (터미널 2)
-cd wms-mock && mvn spring-boot:run    # CLI 메뉴 표시
+# 터미널 4개
+cd wcs-app     && mvn spring-boot:run   # 9001
+cd shuttle-wcs && mvn spring-boot:run   # 9002
+cd rcs-mock    && mvn spring-boot:run   # 9003 + CLI
+cd wms-mock    && mvn spring-boot:run   # CLI
 ```
 
-> ⚠️ `wcs-app`을 단독 빌드하면 `common`을 못 찾아 실패한다. 항상 루트에서 `mvn install` 후 실행.
+base-url은 각 application.yml에서 환경변수로 override 가능
+(`SHUTTLE_WCS_BASE_URL`, `RCS_MOCK_BASE_URL`, `WCS_APP_BASE_URL`).
 
 ---
 
-## 4. 메시지 계약 (Contract) — 서브에이전트 공유 기준
+## 4. 메시지 계약
 
-라우팅은 **하나의 Topic Exchange `wcs.topic`** 위에서 라우팅 키로 구분된다.
+### 4-1. WMS↔WCS — RabbitMQ (Exchange `wcs.topic`)
 
-| 흐름 | 라우팅 키 | 큐 | 메시지 타입 |
-|------|-----------|-----|-------------|
-| WMS → WCS | `wms.inbound.cmd` | `wcs.queue.inbound.cmd` | INBOUND_CMD |
-| WCS → WMS | `wcs.inbound.complete` | `wms.queue.inbound.complete` | INBOUND_COMPLETE |
+| 흐름 | 라우팅 키 | 큐 | 메시지 |
+|------|-----------|-----|--------|
+| WMS→WCS | `wms.inbound.cmd` | `wcs.queue.inbound.cmd` | INBOUND_CMD (taskId + inboundDetail[]) |
+| WMS→WCS | `wms.inbound.cancel` | `wcs.queue.inbound.cancel` | INBOUND_CANCEL |
+| WCS→WMS | `wcs.inbound.complete` | `wms.queue.inbound.complete` | INBOUND_COMPLETE |
+| WMS→WCS | `wms.outbound.cmd` | `wcs.queue.outbound.cmd` | OUTBOUND_CMD (taskId + items[]: palletId·itemCode·lotId·pickQty) |
+| WCS→WMS | `wcs.outbound.cmd.ack` | `wms.queue.outbound.cmd.ack` | OUTBOUND_CMD_ACK (result=ACCEPTED\|REJECTED) |
 
-### DTO 필드 (common 모듈 = 변경 시 전 모듈 영향)
+### 4-2. WCS↔RCS — REST 동기 (요청의 응답이 곧 ACK)
 
-```
-WcsMessageBase (공통)
-  messageType   String         메시지 종류 식별자
-  messageId     String         메시지 고유 ID (멱등 키의 일부)
-  refMessageId  String?        연관 메시지 ID (nullable)
-  sequenceNo    int
-  timestamp     LocalDateTime
-
-InboundCmdDto extends WcsMessageBase    // INBOUND_CMD
-  taskId, palletId, itemCode, lotId  String
-  qty           int
-  expireDate    LocalDate?     @JsonInclude(NON_NULL)
-
-InboundCompleteDto extends WcsMessageBase   // INBOUND_COMPLETE
-  taskId, palletId, itemCode, lotId  String
-  qty           int
-  status        String         COMPLETED | FAILED
-  message       String
-```
+| API | 방향 | 엔드포인트(shuttle-wcs 기준) | 비고 |
+|-----|------|------------------------------|------|
+| STATION_STATUS | RCS→WCS | POST /rcs/station-status | 입고/출고 공용, stationType으로 구분, upsert |
+| BCR_READ | RCS→WCS | POST /rcs/bcr-read | 입고: 스캔 → INBOUND_TASK 자동 발행 |
+| INBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/inbound-task | wcsTaskId = eqpPalletId-cycleNo |
+| INBOUND_DONE / ACK | RCS→WCS | POST /rcs/inbound-done | 완료 → 재고 적재 + INBOUND_COMPLETE 자동 통보 |
+| OUTBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/outbound-task | eqpPalletId + destStation |
+| OUTBOUND_DONE / ACK | RCS→WCS | POST /rcs/outbound-done | 배출 완료 → PICKING_ZONE + 재고 소멸 |
 
 ---
 
 ## 5. DB 스키마
 
-```sql
--- 접속: localhost:5438 / db=wcs / user=wcs (application.yml 기본값, 환경변수로 override)
-CREATE TABLE inf.if_msg_log (
-    log_id          BIGSERIAL    PRIMARY KEY,
-    direction       VARCHAR(10)  NOT NULL,   -- INBOUND | OUTBOUND  (WCS 기준)
-    message_type    VARCHAR(50)  NOT NULL,
-    message_id      VARCHAR(60)  NOT NULL,
-    ref_message_id  VARCHAR(60),
-    sequence_no     INTEGER,
-    msg_timestamp   TIMESTAMP    NOT NULL,
-    routing_key     VARCHAR(100),
-    queue_name      VARCHAR(100),
-    payload         JSONB        NOT NULL,    -- DTO를 ObjectMapper로 직렬화한 문자열, ::jsonb 캐스팅
-    status          VARCHAR(20)  NOT NULL,    -- RECEIVED | PROCESSING | COMPLETED | FAILED
-    error_msg       TEXT,
-    processed_at    TIMESTAMP,
-    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
--- 멱등 보장: (direction, message_id) UNIQUE  (제약명 ux_msg_id)
+### 5-1. `inf.if_msg_log` (wcs-app) — WMS 전문 이력
+direction(INBOUND|OUTBOUND, WCS 기준) · message_type · message_id · payload(JSONB) ·
+status(RECEIVED→PROCESSING→COMPLETED / FAILED). 멱등키 `(direction, message_id)` UNIQUE.
+- INBOUND(Consumer): RECEIVED → PROCESSING → COMPLETED (예외 FAILED)
+- OUTBOUND(Producer): 발행 성공 COMPLETED insert / 실패 FAILED insert
+
+### 5-2. `biz` 스키마 (shuttle-wcs) — 전체 DDL은 `shuttle-wcs/src/main/resources/sql/schema.sql`
+
+| 테이블 | 용도 |
+|--------|------|
+| wcs_inbound_order_h / _d | 입고 지시 헤더/상세 (task→pallet 라인, 중복 taskId 409) |
+| wcs_outbound_order_h / _d | 출고 지시 헤더/상세 (입고와 동일 구조, 중복 taskId → ACK REJECTED) |
+| wcs_pallet_line_h (+vw) | Pallet 적재 라인 시계열 (is_latest) |
+| wcs_eqp_pallet_m | 설비파레트 마스터 |
+| wcs_eqp_pallet_map (+_h) | EqpPalletId↔PalletId 매핑 현재상태 + 이력 (cycle_no) |
+| wcs_station | 스테이션 상태 (STATION_STATUS upsert, INBOUND/OUTBOUND) |
+| wcs_shuttle_msg_log | RCS REST 송수신 이력 (SEND/RECEIVE) |
+| wcs_inventory (+vw_available) | 랙 재고. **available = quantity − reserved_qty** |
+
+### 5-3. 상태 모델
+
+```
+eqp_pallet_map.map_status : EMPTY → MAPPED → IN_PROGRESS → STORED → (출고) IN_PROGRESS → OUTBOUND
+eqp_pallet_map.location   : IDLE → STATION → IN_RACK → OUTBOUNDING → PICKING_ZONE
+outbound_order_h.cmd_status : RECEIVED → DISPATCHED → COMPLETED
+재고 : INBOUND_DONE 적재(+) / OUTBOUND_CMD 예약(reserved_qty=quantity)
+       / OUTBOUND_DONE 소멸(행 삭제). 출고 진행중 팔렛은 location=OUTBOUNDING으로 입고와 구분
 ```
 
-### 상태 전이
+---
+
+## 6. 구현된 플로우
+
+### 6-1. 입고 (c1)
 ```
-INBOUND  (Consumer 수신):  RECEIVED → PROCESSING → COMPLETED  (예외 시 FAILED)
-OUTBOUND (Producer 발행):  발행 성공 시 COMPLETED insert / 실패 시 FAILED insert
+WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(H/D 저장, 중복 409)
+→ [PRE03] POST /api/mapping (EqpPalletId↔PalletId 매핑, pallet_line_h 생성)
+→ RCS BCR_READ → 스테이션 점유(BUSY) → INBOUND_TASK/ACK 자동 발행 (MAPPED→IN_PROGRESS)
+→ RCS INBOUND_DONE → STORED/IN_RACK 전이 + 재고 적재 + 스테이션 해제
+→ INBOUND_COMPLETE 자동 통보 (shuttle-wcs → wcs-app → MQ → WMS)
 ```
 
----
+### 6-2. 출고 (c3 · Case A: WMS가 PalletId 지정, 외부 피킹존)
+```
+[PRE] RCS STATION_STATUS(OUTBOUND) → wcs_station upsert
+[01/02] WMS OUTBOUND_CMD(MQ) → wcs-app 멱등 적재 → shuttle-wcs 위임
+        검증: taskId 중복 / 매핑 미존재 / STORED 아님 / 이미 예약된 팔렛 → REJECTED
+        통과: H/D 저장(RECEIVED) + 팔렛 전체 예약(reserved_qty=quantity, 가용재고 제외)
+        → OUTBOUND_CMD_ACK(MQ) 회신
+[03/04] 출고 시작(wcs-app CLI 2번, 작업자 트리거) → /internal/outbound-start
+        RECEIVED 지시 전체를 팔렛 라인별 순차 OUTBOUND_TASK 발행 (일괄, 완료 대기 없음)
+        destStation = OUTBOUND 스테이션 1건(가용성 판정 없음 — 버퍼 게이팅은 주체 미정으로 보류)
+        성공 라인: STORED→IN_PROGRESS, IN_RACK→OUTBOUNDING / 전 라인 성공 시 H→DISPATCHED
+        스킵(best-effort): 매핑 미존재·REJECTED 라인은 건너뛰고 계속
+[05/06] RCS OUTBOUND_DONE(rcs-mock CLI 5번 수동) → 검증(wcsTaskId·IN_PROGRESS/OUTBOUNDING)
+        → OUTBOUND/PICKING_ZONE 전이 + 랙 재고 삭제 + D 완료·task 전체 완료 시 H→COMPLETED
+        → OUTBOUND_DONE_ACK 회신
+```
 
-## 6. 핵심 규칙 (코드 수정 시 반드시 지킬 것)
+### 6-3. 재고 예약 모델 (설계 결정)
+- 팔렛트 단위 전량 출고 운영(부분 피킹은 외부 피킹존에서 후처리 → 잔량 재입고)이므로
+  **예약은 팔렛 전체**(reserved_qty=quantity). pickQty 부분 예약 금지.
+- 동일 팔렛이 입출고를 반복하므로 주문 테이블 조인 파생이 아닌 **재고 컬럼(reserved_qty)** 방식 채택.
+- 예약 시점 = OUTBOUND_CMD 수신(할당). 물리 소멸 = OUTBOUND_DONE(배출).
+- 이미 예약된 팔렛에 대한 중복 OUTBOUND_CMD는 REJECTED.
 
-1. **로그는 WCS 입장만 기록한다.** INBOUND_CMD 수신 = `INBOUND`, INBOUND_COMPLETE 발행 = `OUTBOUND`.
-   테스트용 `InboundCmdProducer`(WMS 흉내)와 `wms-mock` 전체는 **DB 로그를 남기지 않는다.**
-2. **INBOUND은 멱등 처리한다.** `(direction, message_id)` 중복이면 `MsgLogService.insertInbound`가
-   `null`을 반환하고 Consumer는 skip한다. (`IfMsgLogMapper.existsByDirectionAndMessageId`)
-3. **DTO는 `common`에만 정의.** wcs-app/wms-mock에서 DTO를 복제하지 말 것.
-4. **라우팅 키/Exchange/큐 이름은 application.yml에서 관리.** 하드코딩 금지.
-5. 코드 스타일: Lombok `@SuperBuilder` + `@NoArgsConstructor`, 로그/주석은 한국어.
-
----
-
-## 7. 서브에이전트 작업 분배 가이드
-
-### 7-1. 모듈별 오너십 (병렬 작업 단위)
-
-| 모듈 | 책임 경계 | 건드리면 안 되는 것 |
-|------|-----------|---------------------|
-| `common` | DTO 정의/필드 추가 | 비즈니스 로직, Spring 의존성 |
-| `wcs-app` | 수신·발행·DB·상태전이 | wms-mock 코드 의존 |
-| `wms-mock` | 메시지 시뮬레이션 | DB 적재, 실제 비즈니스 로직 |
-
-### 7-2. 병렬 분배가 적합한 작업
-- **신규 메시지 타입 추가**: `common`(DTO) → `wcs-app`(Consumer/Producer) → `wms-mock`(반대편) 3-way 분할
-- **양방향 대칭 작업**: "송신측 에이전트 / 수신측 에이전트" 동시 진행
-- **모듈별 테스트 작성**: 각 모듈에 독립 에이전트 할당
-
-### 7-3. 단일 에이전트로 처리할 작업 (순차 필수)
-- `common` DTO **필드 변경/삭제** → 전 모듈 컴파일 영향
-- 라우팅 키·Exchange 변경 → 양쪽 config 동시 수정
-- DB 컬럼/제약 변경 → 엔티티·Mapper·XML 동반 수정
+### 6-4. 미구현 (후속 백로그)
+OUTBOUND_COMPLETE(07, WMS 팔렛 단위 완료 통보) · OUTBOUND_ORDER_COMPLETE(07-E) ·
+PICKING_REPORT/ACK(08/09) · INVENTORY_ADJUSTMENT(10) · OUTBOUND_MISMATCH(02-A 재고 대사) ·
+Case B(SKU+수량, 02-B CONFIRM) · 출고 취소/실패 처리(예약 해제 reserved_qty=0) ·
+rcs-mock OUTBOUND_DONE 자동 주기 발행 · OUTBOUND_TASK 동시 유지 개수 제한(예: 10건)
 
 ---
 
-## 8. 실습 예제 시나리오 — INBOUND_CANCEL 추가
+## 7. 핵심 규칙 (코드 수정 시 반드시 지킬 것)
 
-> 입고 취소 메시지(WMS→WCS)를 추가하는 작업을 **3개 서브에이전트로 병렬 분배**해보는 예제.
-
-**선행(단일):** `common`에 `InboundCancelDto`(taskId, palletId, reason) 추가 → 계약 확정.
-
-선행 완료 후 아래를 병렬 분배:
-
-| 에이전트 | 범위 | 산출물 |
-|----------|------|--------|
-| A (wcs-app 수신) | `wms.inbound.cancel` 라우팅 키/큐 추가, `InboundCancelConsumer` 작성, DB 멱등 적재 | config + consumer |
-| B (wms-mock 발행) | `InboundCancelPublisher` + CLI 메뉴 항목 추가 | publisher + cli |
-| C (테스트) | wcs-app Consumer 단위 테스트 (멱등성 포함) | test 코드 |
-
-**충돌 포인트(문서화 목적):** A·B 모두 application.yml의 라우팅 키를 참조 → 키 이름은 선행 단계에서
-이 표에 확정해 둬야 두 에이전트가 같은 값을 쓴다.
+1. **DTO는 `common`에만 정의.** 타 모듈에서 복제 금지.
+2. **if_msg_log는 WCS 입장만 기록.** wms-mock·rcs-mock·테스트용 Producer는 DB 로그 없음.
+3. **MQ INBOUND는 멱등 처리.** `(direction, message_id)` 중복이면 `MsgLogService.insertInbound`가 null 반환 → Consumer skip.
+4. **RCS 연계 전문은 `RcsMsgLogService`로 SEND/RECEIVE 적재** (wcs_shuttle_msg_log).
+5. **라우팅 키/Exchange/큐/base-url은 application.yml에서 관리.** 하드코딩 금지.
+6. **여러 Queue 빈이 있는 Config에서 바인딩은 큐 빈 메서드 직접 호출**로 참조
+   (`bind(inboundCmdQueue())`). 파라미터 주입은 `-parameters` 미적용 시 모호성 오류.
+7. 스키마 변경 시 `schema.sql` + 엔티티 + Mapper 인터페이스 + XML 동반 수정.
+8. 코드 스타일: Lombok `@SuperBuilder`(+`@NoArgsConstructor`), 로그/주석 한국어.
+9. wcsTaskId 포맷 = `{eqpPalletId}-{cycleNo}`.
 
 ---
 
-## 9. 검증 명령 (각 에이전트의 self-check)
+## 8. 검증 명령
 
 ```bash
-mvn -q -pl common install              # 계약 변경 후 우선 빌드
-mvn -q -pl wcs-app -am test            # wcs-app + 의존 모듈 테스트
-mvn -q -pl wms-mock -am compile        # wms-mock 컴파일 확인
+mvn -q -pl common install              # 계약(DTO) 변경 후 우선 빌드
+mvn -q -pl shuttle-wcs -am install -DskipTests
 mvn -q install -DskipTests             # 전체 통합 빌드
 
-# 런타임 동작 확인
-curl -X POST http://localhost:9001/test/inbound-cmd       # INBOUND_CMD 발행→수신 1회전
-docker exec rabbitmq rabbitmqctl purge_queue wcs.queue.inbound.cmd   # 큐 비우기
+# 큐 비우기
+docker exec rabbitmq rabbitmqctl purge_queue wcs.queue.outbound.cmd
+```
+
+주요 확인 쿼리:
+```sql
+SELECT * FROM inf.if_msg_log ORDER BY log_id DESC LIMIT 10;
+SELECT * FROM biz.wcs_shuttle_msg_log ORDER BY log_id DESC LIMIT 10;
+SELECT * FROM biz.wcs_vw_available_inventory;
+SELECT eqp_pallet_id, pallet_id, map_status, location, cycle_no FROM biz.wcs_eqp_pallet_map;
+SELECT task_id, cmd_status FROM biz.wcs_outbound_order_h;
 ```
 
 ---
 
-## 10. 제외 범위 (현 단계)
-인증/보안 · Dead Letter Queue · 재시도 정책 · 앱 컨테이너화(docker-compose에 주석으로 골격만 존재).
+## 9. 제외 범위 (현 단계)
+인증/보안 · Dead Letter Queue · 재시도 정책 · 동기 타임아웃 처리 · 앱 컨테이너화.
