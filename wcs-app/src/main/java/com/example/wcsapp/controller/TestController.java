@@ -3,6 +3,7 @@ package com.example.wcsapp.controller;
 import com.example.common.dto.InboundCmdDetail;
 import com.example.common.dto.InboundCmdDto;
 import com.example.common.dto.InboundCompleteDto;
+import com.example.wcsapp.client.ShuttleWcsClient;
 import com.example.wcsapp.producer.InboundCmdProducer;
 import com.example.wcsapp.producer.InboundCompleteProducer;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class TestController {
 
     private final InboundCmdProducer inboundCmdProducer;
     private final InboundCompleteProducer inboundCompleteProducer;
+    private final ShuttleWcsClient shuttleWcsClient;
 
     @PostMapping("/inbound-cmd")
     public ResponseEntity<String> publishInboundCmd(
@@ -40,6 +42,11 @@ public class TestController {
         InboundCompleteDto dto = (body != null) ? body : defaultInboundComplete();
         inboundCompleteProducer.send(dto);
         return ResponseEntity.ok("INBOUND_COMPLETE published: " + dto.getMessageId());
+    }
+
+    @PostMapping("/outbound-start")
+    public ResponseEntity<String> startOutbound() {
+        return ResponseEntity.ok(shuttleWcsClient.startOutbound());
     }
 
     private InboundCmdDto defaultInboundCmd() {

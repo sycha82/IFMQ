@@ -60,13 +60,18 @@ ifmq/                        ← parent pom
 ├── rcs-mock/                ← RCS/설비ECS 시뮬레이터 (port 9003, DB 없음)
 │   ├── cli/  RcsCliRunner — 1. STATION_STATUS(입고) / 2. BCR_READ / 3. INBOUND_DONE
 │   │                        4. STATION_STATUS(출고) / 5. OUTBOUND_DONE
-│   └── controller/ RcsTaskController — POST /rcs/inbound-task · /rcs/outbound-task (ACK 동기 회신)
+│   ├── controller/ RcsTaskController — POST /rcs/inbound-task · /rcs/outbound-task (ACK 동기 회신)
+│   └── controller/ TestController — POST /test/* (CLI 메뉴 1:1 대응 REST, 도커용)
 │
-└── wms-mock/                ← WMS 시뮬레이터 (CLI 전용, DB 없음)
+└── wms-mock/                ← WMS 시뮬레이터 (port 9004, DB 없음)
     ├── cli/  WmsCliRunner — 1. INBOUND_CMD / 2. INBOUND_CANCEL / 3. OUTBOUND_CMD
     ├── producer/ InboundCmdPublisher · InboundCancelPublisher · OutboundCmdPublisher
-    └── consumer/ InboundCompleteConsumer · OutboundCmdAckConsumer (화면 출력만)
+    ├── consumer/ InboundCompleteConsumer · OutboundCmdAckConsumer (화면 출력만)
+    └── controller/ TestController — POST /test/* (CLI 메뉴 1:1 대응 REST, 도커용)
 ```
+
+`wcs-app`의 CLI 메뉴(출고 시작 등)도 `POST /test/outbound-start`로 동일하게 REST 호출 가능
+(TestController에 통합, 기존 inbound-cmd·inbound-complete 엔드포인트와 함께).
 
 호출 방향: `wms-mock ⇄(MQ)⇄ wcs-app ⇄(Feign)⇄ shuttle-wcs ⇄(Feign/REST)⇄ rcs-mock`
 
@@ -74,21 +79,53 @@ ifmq/                        ← parent pom
 
 ## 3. 빌드 & 실행
 
+### 3-1. 로컬 mvn 실행 (CLI 메뉴 조작)
+
 ```bash
-docker compose up -d                    # RabbitMQ (최초 1회)
+docker compose up -d rabbitmq           # RabbitMQ만 (최초 1회). Postgres는 별도 로컬 Docker(5438)
 psql -h localhost -p 5438 -U wcs -d wcs -f shuttle-wcs/src/main/resources/sql/schema.sql
 
 mvn install -DskipTests                 # 반드시 루트에서 (common 선행 빌드 필요)
 
 # 터미널 4개
-cd wcs-app     && mvn spring-boot:run   # 9001
+cd wcs-app     && mvn spring-boot:run   # 9001 + CLI
 cd shuttle-wcs && mvn spring-boot:run   # 9002
 cd rcs-mock    && mvn spring-boot:run   # 9003 + CLI
-cd wms-mock    && mvn spring-boot:run   # CLI
+cd wms-mock    && mvn spring-boot:run   # 9004 + CLI
 ```
 
 base-url은 각 application.yml에서 환경변수로 override 가능
 (`SHUTTLE_WCS_BASE_URL`, `RCS_MOCK_BASE_URL`, `WCS_APP_BASE_URL`).
+
+### 3-2. 전체 도커 실행 (앱 4종 컨테이너화, CLI 대신 REST)
+
+앱 4개(`wcs-app`·`shuttle-wcs`·`rcs-mock`·`wms-mock`)는 도커로 띄우고,
+Postgres는 기존 로컬 Docker(5438)를 그대로 사용한다(`docker-compose.yml`에 미포함).
+컨테이너 CLI는 표준입력이 없어 조작 불가 — **모든 CLI 메뉴는 `TestController`의
+`POST /test/*` 엔드포인트로 1:1 대응**되어 있으니 이걸로 조작한다.
+
+```bash
+docker compose up -d --build            # rabbitmq + wcs-app + shuttle-wcs + rcs-mock + wms-mock
+
+# 예시: 입고 지시 발행 (기본값 사용, body 생략 가능)
+curl -X POST http://localhost:9004/test/inbound-cmd
+curl -X POST http://localhost:9003/test/station-status-in
+curl -X POST http://localhost:9003/test/bcr-read
+curl -X POST http://localhost:9003/test/inbound-done
+curl -X POST http://localhost:9004/test/outbound-cmd
+curl -X POST http://localhost:9001/test/outbound-start
+curl -X POST http://localhost:9003/test/station-status-out
+curl -X POST http://localhost:9003/test/outbound-done
+
+docker compose logs -f wcs-app          # 개별 서비스 로그 확인
+docker compose down                     # 종료 (RabbitMQ 볼륨은 유지)
+```
+
+- Linux Docker Engine은 `host.docker.internal`이 기본 미지원이라
+  `extra_hosts: host-gateway` 매핑을 `wcs-app`·`shuttle-wcs`에 넣어뒀다(맥/윈도우 Docker Desktop은 자동 지원).
+- 코드 변경 후에는 `docker compose up -d --build`로 재빌드해야 반영된다.
+- `Dockerfile`은 루트 1개, 멀티스테이지 + `--target`으로 4개 이미지를 만든다
+  (공유 `build` 스테이지를 4개 서비스가 캐시 공유).
 
 ---
 

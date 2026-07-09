@@ -18,19 +18,84 @@ services:
       timeout: 5s
       retries: 5
 
-  # wcs-app:
-  #   build: ./wcs-app
-  #   container_name: wcs-app
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     RABBITMQ_HOST: rabbitmq
-  #     RABBITMQ_PORT: 5672
-  #     RABBITMQ_USERNAME: guest
-  #     RABBITMQ_PASSWORD: guest
-  #   depends_on:
-  #     rabbitmq:
-  #       condition: service_healthy
+  # PostgreSQL은 이 compose에 포함하지 않음 — 기존 로컬 Docker(5438)를 그대로 사용.
+  # 컨테이너에서 host.docker.internal 로 접근 (Linux는 host-gateway 매핑 필요, 아래 extra_hosts).
+
+  wcs-app:
+    build:
+      context: .
+      target: wcs-app
+    container_name: wcs-app
+    ports:
+      - "9001:9001"
+    # CommandLineRunner(CLI 메뉴)가 기동 시 자동 실행되어 stdin을 읽는다.
+    # stdin_open 없이는 즉시 EOF → 예외 → 앱 시작 실패로 컨테이너가 종료된다.
+    stdin_open: true
+    tty: true
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5438
+      DB_USERNAME: wcs
+      DB_PASSWORD: devPostgreSQL
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      SHUTTLE_WCS_BASE_URL: http://shuttle-wcs:9002
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  shuttle-wcs:
+    build:
+      context: .
+      target: shuttle-wcs
+    container_name: shuttle-wcs
+    ports:
+      - "9002:9002"
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: 5438
+      DB_USERNAME: wcs
+      DB_PASSWORD: devPostgreSQL
+      RCS_MOCK_BASE_URL: http://rcs-mock:9003
+      WCS_APP_BASE_URL: http://wcs-app:9001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  rcs-mock:
+    build:
+      context: .
+      target: rcs-mock
+    container_name: rcs-mock
+    ports:
+      - "9003:9003"
+    stdin_open: true
+    tty: true
+    environment:
+      SHUTTLE_WCS_BASE_URL: http://shuttle-wcs:9002
+    depends_on:
+      - shuttle-wcs
+
+  wms-mock:
+    build:
+      context: .
+      target: wms-mock
+    container_name: wms-mock
+    ports:
+      - "9004:9004"
+    stdin_open: true
+    tty: true
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   rabbitmq_data:
