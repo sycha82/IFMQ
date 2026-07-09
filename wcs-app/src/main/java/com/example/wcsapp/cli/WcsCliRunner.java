@@ -50,7 +50,6 @@ public class WcsCliRunner implements CommandLineRunner {
             switch (choice) {
                 case "1" -> sendInboundComplete(scanner);
                 case "2" -> startOutbound();
-                case "3" -> startInbound();
                 case "0" -> {
                     System.out.println("종료합니다.");
                     return;
@@ -64,7 +63,6 @@ public class WcsCliRunner implements CommandLineRunner {
         System.out.println("\n----------------------------------------");
         System.out.println("  1. INBOUND_COMPLETE 발행");
         System.out.println("  2. 출고 시작 (수신된 출고 지시 OUTBOUND_TASK 순차 발행)");
-        System.out.println("  3. 입고 시작 (placeholder — 추후 상태 업데이트 로직 예정)");
         System.out.println("  0. 종료");
         System.out.print("선택 > ");
     }
@@ -89,16 +87,6 @@ public class WcsCliRunner implements CommandLineRunner {
         System.out.println("\n[출고 시작] 수신된(RECEIVED) 출고 지시를 순차 발송합니다...");
         try {
             String result = shuttleWcsClient.startOutbound();
-            System.out.println(result);
-        } catch (Exception e) {
-            System.out.println("오류: " + e.getMessage());
-        }
-    }
-
-    private void startInbound() {
-        System.out.println("\n[입고 시작] (placeholder — 상태 조회/로깅만 수행)");
-        try {
-            String result = shuttleWcsClient.startInbound();
             System.out.println(result);
         } catch (Exception e) {
             System.out.println("오류: " + e.getMessage());

@@ -22,8 +22,4 @@ public interface ShuttleWcsClient {
     // 출고 시작 — 수신된(RECEIVED) 출고 지시를 순차 OUTBOUND_TASK 발행 위임
     @PostMapping("/internal/outbound-start")
     String startOutbound();
-
-    // 입고 시작 — 현재는 placeholder(상태 조회/로깅). 추후 상태 업데이트 로직 확장 예정
-    @PostMapping("/internal/inbound-start")
-    String startInbound();
 }

@@ -49,11 +49,6 @@ public class TestController {
         return ResponseEntity.ok(shuttleWcsClient.startOutbound());
     }
 
-    @PostMapping("/inbound-start")
-    public ResponseEntity<String> startInbound() {
-        return ResponseEntity.ok(shuttleWcsClient.startInbound());
-    }
-
     private InboundCmdDto defaultInboundCmd() {
         return InboundCmdDto.builder()
                 .messageType("INBOUND_CMD")

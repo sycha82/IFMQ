@@ -3,6 +3,7 @@ package com.example.rcsmock.client;
 import com.example.common.dto.BcrReadDto;
 import com.example.common.dto.InboundDoneAckDto;
 import com.example.common.dto.InboundDoneDto;
+import com.example.common.dto.InboundStartDto;
 import com.example.common.dto.OutboundDoneAckDto;
 import com.example.common.dto.OutboundDoneDto;
 import com.example.common.dto.StationStatusDto;
@@ -21,6 +22,10 @@ public interface ShuttleWcsRcsClient {
     // API 02 · BCR_READ
     @PostMapping("/rcs/bcr-read")
     String sendBcrRead(@RequestBody BcrReadDto dto);
+
+    // INBOUND_START · 입고 착수 통보 → WCS 스테이션 해제
+    @PostMapping("/rcs/inbound-start")
+    String sendInboundStart(@RequestBody InboundStartDto dto);
 
     // API 05 · INBOUND_DONE → 응답이 곧 API 06 INBOUND_DONE_ACK
     @PostMapping("/rcs/inbound-done")

@@ -40,8 +40,8 @@ ifmq/                        ← parent pom
 │   ├── consumer/  InboundCmdConsumer · InboundCancelConsumer · OutboundCmdConsumer
 │   ├── producer/  InboundCompleteProducer · OutboundCmdAckProducer · InboundCmdProducer(테스트용)
 │   ├── controller/ InternalController(/internal/inbound-complete) · TestController(/test/*)
-│   ├── client/    ShuttleWcsClient → shuttle-wcs 위임 (inbound-order, outbound-order, outbound-start, inbound-start)
-│   ├── cli/       WcsCliRunner — 1. INBOUND_COMPLETE 발행 / 2. 출고 시작 / 3. 입고 시작(placeholder)
+│   ├── client/    ShuttleWcsClient → shuttle-wcs 위임 (inbound-order, outbound-order, outbound-start)
+│   ├── cli/       WcsCliRunner — 1. INBOUND_COMPLETE 발행 / 2. 출고 시작
 │   └── service/db MsgLogService · IfMsgLog(Mapper)  ← if_msg_log 적재/멱등/상태전이
 │
 ├── shuttle-wcs/             ← WCS 비즈니스 모듈 (port 9002, DB=biz 스키마)
@@ -49,18 +49,17 @@ ifmq/                        ← parent pom
 │   │   ├── InboundOrderController   POST /internal/inbound-order    (wcs-app 위임 수신)
 │   │   ├── OutboundOrderController  POST /internal/outbound-order   (〃, ACK 반환)
 │   │   ├── OutboundStartController  POST /internal/outbound-start   (출고 시작 트리거)
-│   │   ├── InboundStartController   POST /internal/inbound-start    (입고 시작 — placeholder, 상태조회만)
 │   │   ├── MappingController        POST /api/mapping               (PRE03 매핑 등록)
-│   │   ├── RcsInboundController     POST /rcs/station-status · /rcs/bcr-read · /rcs/inbound-done
+│   │   ├── RcsInboundController     POST /rcs/station-status · /rcs/bcr-read · /rcs/inbound-start · /rcs/inbound-done
 │   │   └── RcsOutboundController    POST /rcs/outbound-done
-│   ├── service/  InboundOrderService · MappingService · RcsInboundService · InboundStartService(placeholder)
+│   ├── service/  InboundOrderService · MappingService · RcsInboundService
 │   │             OutboundOrderService · OutboundStartService · OutboundDoneService
 │   │             RcsMsgLogService(wcs_shuttle_msg_log SEND/RECEIVE)
 │   └── client/   RcsClient(→rcs-mock: inbound-task, outbound-task) · WcsAppClient(→wcs-app: inbound-complete)
 │
 ├── rcs-mock/                ← RCS/설비ECS 시뮬레이터 (port 9003, DB 없음)
 │   ├── cli/  RcsCliRunner — 1. STATION_STATUS(입고) / 2. BCR_READ / 3. INBOUND_DONE
-│   │                        4. STATION_STATUS(출고) / 5. OUTBOUND_DONE
+│   │                        4. STATION_STATUS(출고) / 5. OUTBOUND_DONE / 6. INBOUND_START
 │   ├── controller/ RcsTaskController — POST /rcs/inbound-task · /rcs/outbound-task (ACK 동기 회신)
 │   └── controller/ TestController — POST /test/* (CLI 메뉴 1:1 대응 REST, 도커용)
 │
@@ -112,8 +111,8 @@ docker compose up -d --build            # rabbitmq + wcs-app + shuttle-wcs + rcs
 curl -X POST http://localhost:9004/test/inbound-cmd
 curl -X POST http://localhost:9003/test/station-status-in
 curl -X POST http://localhost:9003/test/bcr-read
+curl -X POST http://localhost:9003/test/inbound-start    # 착수 → 스테이션 해제
 curl -X POST http://localhost:9003/test/inbound-done
-curl -X POST http://localhost:9001/test/inbound-start   # placeholder — 상태 조회/로깅만
 curl -X POST http://localhost:9004/test/outbound-cmd
 curl -X POST http://localhost:9001/test/outbound-start
 curl -X POST http://localhost:9003/test/station-status-out
@@ -148,8 +147,9 @@ docker compose down                     # 종료 (RabbitMQ 볼륨은 유지)
 | API | 방향 | 엔드포인트(shuttle-wcs 기준) | 비고 |
 |-----|------|------------------------------|------|
 | STATION_STATUS | RCS→WCS | POST /rcs/station-status | 입고/출고 공용, stationType으로 구분, upsert |
-| BCR_READ | RCS→WCS | POST /rcs/bcr-read | 입고: 스캔 → INBOUND_TASK 자동 발행 |
+| BCR_READ | RCS→WCS | POST /rcs/bcr-read | 입고: 스캔 → 스테이션 점유(BUSY) + INBOUND_TASK 자동 발행 |
 | INBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/inbound-task | wcsTaskId = eqpPalletId-cycleNo |
+| INBOUND_START | RCS→WCS | POST /rcs/inbound-start | 설비 입고 착수(팔렛 스테이션 이탈) → 스테이션 해제(AVAILABLE) |
 | INBOUND_DONE / ACK | RCS→WCS | POST /rcs/inbound-done | 완료 → 재고 적재 + INBOUND_COMPLETE 자동 통보 |
 | OUTBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/outbound-task | eqpPalletId + destStation |
 | OUTBOUND_DONE / ACK | RCS→WCS | POST /rcs/outbound-done | 배출 완료 → PICKING_ZONE + 재고 소멸 |
@@ -196,7 +196,8 @@ outbound_order_h.cmd_status : RECEIVED → DISPATCHED → COMPLETED
 WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(H/D 저장, 중복 409)
 → [PRE03] POST /api/mapping (EqpPalletId↔PalletId 매핑, pallet_line_h 생성)
 → RCS BCR_READ → 스테이션 점유(BUSY) → INBOUND_TASK/ACK 자동 발행 (MAPPED→IN_PROGRESS)
-→ RCS INBOUND_DONE → STORED/IN_RACK 전이 + 재고 적재 + 스테이션 해제
+→ RCS INBOUND_START → 스테이션 해제(BUSY→AVAILABLE, 팔렛이 셔틀에 실려 스테이션 이탈)
+→ RCS INBOUND_DONE → STORED/IN_RACK 전이 + 재고 적재
 → INBOUND_COMPLETE 자동 통보 (shuttle-wcs → wcs-app → MQ → WMS)
 ```
 

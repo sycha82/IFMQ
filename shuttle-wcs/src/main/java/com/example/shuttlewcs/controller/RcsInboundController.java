@@ -3,6 +3,7 @@ package com.example.shuttlewcs.controller;
 import com.example.common.dto.BcrReadDto;
 import com.example.common.dto.InboundDoneAckDto;
 import com.example.common.dto.InboundDoneDto;
+import com.example.common.dto.InboundStartDto;
 import com.example.common.dto.StationStatusDto;
 import com.example.shuttlewcs.service.RcsInboundService;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,14 @@ public class RcsInboundController {
     public ResponseEntity<String> bcrRead(@RequestBody BcrReadDto dto) {
         rcsInboundService.receiveBcrRead(dto);
         return ResponseEntity.ok("BCR_READ 처리 | stationId=" + dto.getStationId()
+                + " eqpPalletId=" + dto.getEqpPalletId());
+    }
+
+    // INBOUND_START · 입고 착수 통보 → 스테이션 해제
+    @PostMapping("/inbound-start")
+    public ResponseEntity<String> inboundStart(@RequestBody InboundStartDto dto) {
+        rcsInboundService.receiveInboundStart(dto);
+        return ResponseEntity.ok("INBOUND_START 처리 · 스테이션 해제 | stationId=" + dto.getStationId()
                 + " eqpPalletId=" + dto.getEqpPalletId());
     }
 

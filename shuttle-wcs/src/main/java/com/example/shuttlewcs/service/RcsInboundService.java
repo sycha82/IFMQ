@@ -4,6 +4,7 @@ import com.example.common.dto.BcrReadDto;
 import com.example.common.dto.InboundCompleteDto;
 import com.example.common.dto.InboundDoneAckDto;
 import com.example.common.dto.InboundDoneDto;
+import com.example.common.dto.InboundStartDto;
 import com.example.common.dto.InboundTaskAckDto;
 import com.example.common.dto.InboundTaskDto;
 import com.example.common.dto.StationStatusDto;
@@ -56,6 +57,21 @@ public class RcsInboundService {
                 changedAt);
         log.info("[RCS] STATION_STATUS 반영 | stationId={} type={} status={}",
                 dto.getStationId(), dto.getStationType(), dto.getStatus());
+    }
+
+    // INBOUND_START — 설비 입고 착수 통보 수신 → 팔렛이 스테이션을 떠났으므로 스테이션 해제
+    @Transactional
+    public void receiveInboundStart(InboundStartDto dto) {
+        LocalDateTime now = dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now();
+
+        rcsMsgLogService.logReceive("INBOUND_START", dto.getMessageId(), dto.getRefMessageId(),
+                dto.getStationId(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto, null);
+
+        // 셔틀이 팔렛을 집어 스테이션을 떠남 → 점유 해제 BUSY → AVAILABLE
+        stationMapper.freeByEqpPallet(dto.getEqpPalletId(), now);
+
+        log.info("[RCS] INBOUND_START 수신 · 스테이션 해제 | stationId={} eqpPalletId={} wcsTaskId={} shuttleId={}",
+                dto.getStationId(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto.getShuttleId());
     }
 
     // API 02 · BCR_READ — 스테이션에서 읽은 eqpPallet 매핑 검증 + 스테이션 점유 + INBOUND_TASK 자동 발행
@@ -185,9 +201,9 @@ public class RcsInboundService {
         }
 
         // 3. 완료 처리 — 상태 전이 + 재고 누적
+        // (스테이션 해제는 INBOUND_START 시점으로 이동 — 팔렛이 스테이션을 떠나는 착수 시점에 free)
         eqpPalletMapMapper.markStored(map.getEqpPalletId(), now);                 // IN_PROGRESS → STORED / IN_RACK
         orderDMapper.updateCompletedByPalletId(map.getPalletId(), now);          // 상세 완료
-        stationMapper.freeByEqpPallet(map.getEqpPalletId(), now);               // 스테이션 해제 BUSY → AVAILABLE
 
         List<WcsInboundOrderD> lines = orderDMapper.findActiveByPalletId(map.getPalletId());
         for (WcsInboundOrderD line : lines) {

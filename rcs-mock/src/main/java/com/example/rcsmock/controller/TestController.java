@@ -3,6 +3,7 @@ package com.example.rcsmock.controller;
 import com.example.common.dto.BcrReadDto;
 import com.example.common.dto.InboundDoneAckDto;
 import com.example.common.dto.InboundDoneDto;
+import com.example.common.dto.InboundStartDto;
 import com.example.common.dto.OutboundDoneAckDto;
 import com.example.common.dto.OutboundDoneDto;
 import com.example.common.dto.StationStatusDto;
@@ -46,6 +47,13 @@ public class TestController {
         return ResponseEntity.ok(resp);
     }
 
+    @PostMapping("/inbound-start")
+    public ResponseEntity<String> sendInboundStart(@RequestBody(required = false) InboundStartDto body) {
+        InboundStartDto dto = (body != null) ? body : defaultInboundStart();
+        String resp = shuttleWcsRcsClient.sendInboundStart(dto);
+        return ResponseEntity.ok(resp);
+    }
+
     @PostMapping("/inbound-done")
     public InboundDoneAckDto sendInboundDone(@RequestBody(required = false) InboundDoneDto body) {
         InboundDoneDto dto = (body != null) ? body : defaultInboundDone();
@@ -81,6 +89,20 @@ public class TestController {
                 .stationId("STATION-OUT-01")
                 .stationType("OUTBOUND")
                 .status("AVAILABLE")
+                .build();
+    }
+
+    private InboundStartDto defaultInboundStart() {
+        return InboundStartDto.builder()
+                .messageType("INBOUND_START")
+                .messageId("RCS-IN-START-0001")
+                .refMessageId(null)
+                .sequenceNo(1)
+                .timestamp(LocalDateTime.of(2026, 4, 22, 9, 25, 0))
+                .stationId("STATION-IN-01")
+                .eqpPalletId("EP0001")
+                .wcsTaskId("EP0001-1")
+                .shuttleId("SHUTTLE-01")
                 .build();
     }
 
