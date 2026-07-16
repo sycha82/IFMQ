@@ -16,6 +16,11 @@ WCS와 RCS(설비제어) 간 **REST(Feign) 동기 호출**로 구성된 4Way 셔
 - @docs/05-conventions.md — 코드 수정 시 핵심 규칙 · 제외 범위
 - @docs/06-run-and-test.md — 로컬/도커 실행 · Postman/RabbitMQ 발행 · 검증 명령
 
+**참조 전용 (자동 로드 안 함 — 필요 시에만 열 것):**
+- `docs/reference/4way-design-notes.md` — 설계 원문 정제(c3 출고 전체 payload·예외 EX-01~08·
+  Case B·피킹존 08~11 등). 미구현 백로그(07/07-E/08/09/10/02-A/02-B) 작업 시 먼저 참조.
+  `@` 없이 경로만 적어둔 이유: 용량 아껴 평소 로드 X, 관련 작업 때만 읽기 위함.
+
 ## 절대 규칙 (요약 — 상세는 docs/05)
 
 1. DTO는 `common`에만 정의(복제 금지).

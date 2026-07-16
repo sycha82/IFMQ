@@ -42,3 +42,7 @@ OUTBOUND_COMPLETE(07, WMS 팔렛 단위 완료 통보) · OUTBOUND_ORDER_COMPLET
 PICKING_REPORT/ACK(08/09) · INVENTORY_ADJUSTMENT(10) · OUTBOUND_MISMATCH(02-A 재고 대사) ·
 Case B(SKU+수량, 02-B CONFIRM) · 출고 취소/실패 처리(예약 해제 reserved_qty=0) ·
 rcs-mock OUTBOUND_DONE 자동 주기 발행 · OUTBOUND_TASK 동시 유지 개수 제한(예: 10건)
+
+> **미구현 항목의 상세 설계 원문**(payload 필드·예외 EX-01~08·Case B 확인 절차·피킹존 08~11 등)은
+> `docs/reference/4way-design-notes.md` 참조. `@import` 안 하는 참조 전용 문서라 필요할 때만 열어 본다.
+> 위 백로그(07/07-E/08/09/10/02-A/02-B) 작업 시 먼저 이 파일에서 해당 계약을 확인할 것.
