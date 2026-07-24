@@ -22,7 +22,7 @@ ifmq/                        ← parent pom
 │       ├── 입고: InboundCmdDto(+InboundCmdDetail), InboundCompleteDto, InboundCancelDto,
 │       │        BcrReadDto, InboundTaskDto/AckDto, InboundStartDto, InboundDoneDto/AckDto, MappingRegisterDto
 │       ├── 출고: OutboundCmdDto(+OutboundCmdItem), OutboundCmdAckDto,
-│       │        OutboundTaskDto/AckDto, OutboundDoneDto/AckDto
+│       │        OutboundTaskDto/AckDto, OutboundStartDto, OutboundDoneDto/AckDto
 │       └── 공용: StationStatusDto
 │
 ├── wcs-app/                 ← WMS 연계 MQ 어댑터 (port 9001, DB=inf.if_msg_log)

@@ -140,13 +140,17 @@
 | 02 OUTBOUND_CMD_ACK | ✅ | OutboundOrderService(매핑+예약 검증) → OutboundCmdAckProducer |
 | 02-A OUTBOUND_MISMATCH | ❌ 미구현 | 재고 대사(wcs_pallet_line_h vs CMD) |
 | 02-B CONFIRM (Case B) | ❌ 미구현 | Case B 자체 미구현 |
-| 03/04 OUTBOUND_TASK/ACK | ✅ | OutboundStartService (출고 시작 트리거) |
-| 05/06 OUTBOUND_DONE/ACK | ✅ | OutboundDoneService |
+| 03/04 OUTBOUND_TASK/ACK | ✅ | OutboundStartService (작업자 출고 시작 트리거) |
+| OUTBOUND_START (설비 착수) | ✅ (설계 확장) | RcsOutboundService.receiveOutboundStart (IN_RACK→OUTBOUNDING) |
+| 05/06 OUTBOUND_DONE/ACK | ✅ | RcsOutboundService.receiveOutboundDone |
 | 07 OUTBOUND_COMPLETE | ❌ 미구현 | WMS 팔렛 단위 완료 통보 |
 | 07-E ORDER_COMPLETE | ❌ 미구현 | taskId 단위 완료 집계 |
 | 08/09 PICKING_REPORT/ACK | ❌ 미구현 | 피킹존 |
 | 10 INVENTORY_ADJUSTMENT | ❌ 미구현 | 재고 보정 |
 | 재고 예약 모델 | ✅ (설계 확장) | reserved_qty. `docs/04-flows.md` 참조 |
 
-> 재고 예약(reserved_qty), 출고 시작 트리거, INBOUND_START 착수-스테이션해제 등은
-> 원문에 없거나 다르게 정의된 부분을 이 프로젝트에서 확장/조정한 설계 결정임 → `docs/04-flows.md`.
+> **원문에 없는 이 프로젝트 확장/조정 설계** (→ 상세 `docs/04-flows.md`):
+> - 재고 예약 모델(reserved_qty, available=quantity-reserved_qty, CMD 예약/DONE 소멸)
+> - 작업자 "출고 시작" 트리거(RECEIVED 지시 일괄 OUTBOUND_TASK 발행)
+> - **INBOUND_START / OUTBOUND_START**(설비 물리 착수 이벤트) — 착수 시점에
+>   입고는 스테이션 해제(BUSY→AVAILABLE), 출고는 랙 이탈(IN_RACK→OUTBOUNDING)
