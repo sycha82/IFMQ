@@ -40,15 +40,15 @@ ifmq/                        ← parent pom
 │   │   ├── OutboundStartController  POST /internal/outbound-start   (출고 시작 트리거)
 │   │   ├── MappingController        POST /api/mapping               (PRE03 매핑 등록)
 │   │   ├── RcsInboundController     POST /rcs/station-status · /rcs/bcr-read · /rcs/inbound-start · /rcs/inbound-done
-│   │   └── RcsOutboundController    POST /rcs/outbound-done
+│   │   └── RcsOutboundController    POST /rcs/outbound-start · /rcs/outbound-done
 │   ├── service/  InboundOrderService · MappingService · RcsInboundService
-│   │             OutboundOrderService · OutboundStartService · OutboundDoneService
+│   │             OutboundOrderService · OutboundStartService(작업자 TASK 발행) · RcsOutboundService(OUTBOUND_START/DONE 수신)
 │   │             RcsMsgLogService(wcs_shuttle_msg_log SEND/RECEIVE)
 │   └── client/   RcsClient(→rcs-mock: inbound-task, outbound-task) · WcsAppClient(→wcs-app: inbound-complete)
 │
 ├── rcs-mock/                ← RCS/설비ECS 시뮬레이터 (port 9003, DB 없음)
 │   ├── cli/  RcsCliRunner — 1. STATION_STATUS(입고) / 2. BCR_READ / 3. INBOUND_DONE
-│   │                        4. STATION_STATUS(출고) / 5. OUTBOUND_DONE / 6. INBOUND_START
+│   │                        4. STATION_STATUS(출고) / 5. OUTBOUND_DONE / 6. INBOUND_START / 7. OUTBOUND_START
 │   ├── controller/ RcsTaskController — POST /rcs/inbound-task · /rcs/outbound-task (ACK 동기 회신)
 │   └── controller/ TestController — POST /test/* (CLI 메뉴 1:1 대응 REST, 도커용)
 │

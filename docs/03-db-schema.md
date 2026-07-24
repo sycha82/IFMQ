@@ -25,6 +25,8 @@ status(RECEIVED→PROCESSING→COMPLETED / FAILED). 멱등키 `(direction, messa
 ```
 eqp_pallet_map.map_status : EMPTY → MAPPED → IN_PROGRESS → STORED → (출고) IN_PROGRESS → OUTBOUND
 eqp_pallet_map.location   : IDLE → STATION → IN_RACK → OUTBOUNDING → PICKING_ZONE
+  · 출고: OUTBOUND_TASK 는 map_status만 IN_PROGRESS(location IN_RACK 유지),
+    OUTBOUND_START(설비 착수) 시 location IN_RACK→OUTBOUNDING, OUTBOUND_DONE 시 →PICKING_ZONE
 wcs_station.status        : AVAILABLE ↔ BUSY (BCR_READ 점유 / INBOUND_START 해제)
 outbound_order_h.cmd_status : RECEIVED → DISPATCHED → COMPLETED
 재고 : INBOUND_DONE 적재(+) / OUTBOUND_CMD 예약(reserved_qty=quantity)

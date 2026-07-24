@@ -23,6 +23,7 @@
 | INBOUND_START | RCS→WCS | POST /rcs/inbound-start | 설비 입고 착수(팔렛 스테이션 이탈) → 스테이션 해제(AVAILABLE) |
 | INBOUND_DONE / ACK | RCS→WCS | POST /rcs/inbound-done | 완료 → 재고 적재 + INBOUND_COMPLETE 자동 통보 |
 | OUTBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/outbound-task | eqpPalletId + destStation |
+| OUTBOUND_START | RCS→WCS | POST /rcs/outbound-start | 설비 출고 착수(팔렛 랙 이탈) → location IN_RACK→OUTBOUNDING |
 | OUTBOUND_DONE / ACK | RCS→WCS | POST /rcs/outbound-done | 배출 완료 → PICKING_ZONE + 재고 소멸 |
 
 - 모든 DTO는 `common` 모듈에만 정의(타 모듈 복제 금지).

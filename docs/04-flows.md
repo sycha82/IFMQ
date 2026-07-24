@@ -22,12 +22,16 @@ WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(
 [03/04] 출고 시작(wcs-app CLI 2번, 작업자 트리거) → /internal/outbound-start
         RECEIVED 지시 전체를 팔렛 라인별 순차 OUTBOUND_TASK 발행 (일괄, 완료 대기 없음)
         destStation = OUTBOUND 스테이션 1건(가용성 판정 없음 — 버퍼 게이팅은 주체 미정으로 보류)
-        성공 라인: STORED→IN_PROGRESS, IN_RACK→OUTBOUNDING / 전 라인 성공 시 H→DISPATCHED
+        성공 라인: STORED→IN_PROGRESS (location IN_RACK 유지) / 전 라인 성공 시 H→DISPATCHED
         스킵(best-effort): 매핑 미존재·REJECTED 라인은 건너뛰고 계속
+[START] RCS OUTBOUND_START(설비 착수, rcs-mock CLI 7번 수동) → 검증(wcsTaskId·IN_PROGRESS/IN_RACK)
+        → location IN_RACK→OUTBOUNDING (팔렛이 실제 랙을 떠남). map_status는 IN_PROGRESS 유지
 [05/06] RCS OUTBOUND_DONE(rcs-mock CLI 5번 수동) → 검증(wcsTaskId·IN_PROGRESS/OUTBOUNDING)
         → OUTBOUND/PICKING_ZONE 전이 + 랙 재고 삭제 + D 완료·task 전체 완료 시 H→COMPLETED
         → OUTBOUND_DONE_ACK 회신
 ```
+- OUTBOUNDING 전이는 **OUTBOUND_START(착수) 시점**(입고 INBOUND_START 대칭). OUTBOUND_TASK는 IN_PROGRESS만.
+  OUTBOUND_START를 건너뛰면 location=IN_RACK로 남아 OUTBOUND_DONE 검증(OUTBOUNDING 요구)에서 거부됨.
 
 ## 재고 예약 모델 (설계 결정)
 - 팔렛트 단위 전량 출고 운영(부분 피킹은 외부 피킹존에서 후처리 → 잔량 재입고)이므로

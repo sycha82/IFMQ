@@ -133,10 +133,10 @@ public class OutboundStartService {
             return false;
         }
 
-        // 상태 전이: eqpPallet STORED → IN_PROGRESS, location IN_RACK → OUTBOUNDING
+        // 상태 전이: eqpPallet STORED → IN_PROGRESS (task 배정). location은 IN_RACK 유지 —
+        // 팔렛이 실제 랙을 떠나는 OUTBOUNDING 전이는 설비 착수(OUTBOUND_START) 시점에 처리.
         // (재고는 OUTBOUND_CMD 시점에 이미 예약되어 가용에서 제외됨 — 여기서는 미조작)
         eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "IN_PROGRESS");
-        eqpPalletMapMapper.updateLocation(map.getEqpPalletId(), "OUTBOUNDING");
 
         eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
                 .eqpPalletId(map.getEqpPalletId())
@@ -144,7 +144,7 @@ public class OutboundStartService {
                 .taskId(map.getTaskId())
                 .palletId(map.getPalletId())
                 .mapStatus("IN_PROGRESS")
-                .location("OUTBOUNDING")
+                .location("IN_RACK")
                 .mappedAt(map.getMappedAt())
                 .eventType("OUTBOUND_TASK")
                 .eventAt(LocalDateTime.now())

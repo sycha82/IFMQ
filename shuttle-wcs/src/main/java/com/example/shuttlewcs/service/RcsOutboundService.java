@@ -2,6 +2,7 @@ package com.example.shuttlewcs.service;
 
 import com.example.common.dto.OutboundDoneAckDto;
 import com.example.common.dto.OutboundDoneDto;
+import com.example.common.dto.OutboundStartDto;
 import com.example.shuttlewcs.db.WcsEqpPalletMap;
 import com.example.shuttlewcs.db.WcsEqpPalletMapH;
 import com.example.shuttlewcs.db.WcsEqpPalletMapHMapper;
@@ -20,10 +21,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+// RCS/설비ECS → shuttle-wcs 출고 이벤트 수신 처리 (OUTBOUND_START · OUTBOUND_DONE)
+// RcsInboundService(입고 RCS 수신)와 대칭.
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OutboundDoneService {
+public class RcsOutboundService {
 
     private final WcsEqpPalletMapMapper eqpPalletMapMapper;
     private final WcsEqpPalletMapHMapper eqpPalletMapHMapper;
@@ -31,6 +34,55 @@ public class OutboundDoneService {
     private final WcsOutboundOrderHMapper orderHMapper;
     private final WcsInventoryMapper inventoryMapper;
     private final RcsMsgLogService rcsMsgLogService;
+
+    /**
+     * OUTBOUND_START — 설비 출고 착수 통보 수신.
+     * 셔틀이 랙에서 팔렛을 집어 출고를 물리적으로 시작한 시점 → location IN_RACK → OUTBOUNDING 전이.
+     * (OUTBOUND_TASK는 STORED→IN_PROGRESS까지만, 실제 랙 이탈은 이 시점)
+     */
+    @Transactional
+    public void receiveOutboundStart(OutboundStartDto dto) {
+        LocalDateTime now = dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now();
+
+        WcsEqpPalletMap map = eqpPalletMapMapper.findById(dto.getEqpPalletId());
+        if (map == null) {
+            throw new RcsProtocolException("미등록 eqpPallet | eqpPalletId=" + dto.getEqpPalletId());
+        }
+        String expectedTaskId = map.getEqpPalletId() + "-" + map.getCycleNo();
+        if (!expectedTaskId.equals(dto.getWcsTaskId())) {
+            throw new RcsProtocolException("wcsTaskId 불일치 | 수신=" + dto.getWcsTaskId()
+                    + " 현재=" + expectedTaskId);
+        }
+        // 출고 TASK 발행분(IN_PROGRESS/IN_RACK)만 착수 가능
+        if (!"IN_PROGRESS".equals(map.getMapStatus()) || !"IN_RACK".equals(map.getLocation())) {
+            throw new RcsProtocolException("출고 착수 가능 상태(IN_PROGRESS/IN_RACK) 아님 | eqpPalletId="
+                    + dto.getEqpPalletId() + " mapStatus=" + map.getMapStatus() + " location=" + map.getLocation());
+        }
+
+        rcsMsgLogService.logReceive("OUTBOUND_START", dto.getMessageId(), dto.getRefMessageId(),
+                dto.getDestStation(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto, null);
+
+        // 팔렛이 랙을 떠남 → location IN_RACK → OUTBOUNDING (map_status는 IN_PROGRESS 유지)
+        eqpPalletMapMapper.updateLocation(map.getEqpPalletId(), "OUTBOUNDING");
+
+        eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
+                .eqpPalletId(map.getEqpPalletId())
+                .cycleNo(map.getCycleNo())
+                .taskId(map.getTaskId())
+                .palletId(map.getPalletId())
+                .mapStatus("IN_PROGRESS")
+                .location("OUTBOUNDING")
+                .mappedAt(map.getMappedAt())
+                .eventType("OUTBOUND_START")
+                .eventAt(now)
+                .eventBy("RCS")
+                .note("wcsTaskId=" + dto.getWcsTaskId() + " shuttleId=" + dto.getShuttleId()
+                        + " destStation=" + dto.getDestStation())
+                .build());
+
+        log.info("[RCS] OUTBOUND_START 수신 · 랙 이탈(OUTBOUNDING) | wcsTaskId={} eqpPalletId={} shuttleId={}",
+                dto.getWcsTaskId(), dto.getEqpPalletId(), dto.getShuttleId());
+    }
 
     /**
      * API 05 · OUTBOUND_DONE — 출고 스테이션 배출 완료 보고 수신 → 상태 전이 → API 06 OUTBOUND_DONE_ACK 동기 회신.
@@ -51,7 +103,7 @@ public class OutboundDoneService {
             throw new RcsProtocolException("wcsTaskId 불일치 | 수신=" + dto.getWcsTaskId()
                     + " 현재=" + expectedTaskId);
         }
-        // 출고 진행중 상태(OUTBOUND_TASK 발행분)만 완료 처리 — 입고 IN_PROGRESS와 location으로 구분
+        // 출고 진행중 상태(OUTBOUND_START 착수분)만 완료 처리 — 입고 IN_PROGRESS와 location으로 구분
         if (!"IN_PROGRESS".equals(map.getMapStatus()) || !"OUTBOUNDING".equals(map.getLocation())) {
             throw new RcsProtocolException("출고 진행중(IN_PROGRESS/OUTBOUNDING) 상태 아님 | eqpPalletId="
                     + dto.getEqpPalletId() + " mapStatus=" + map.getMapStatus() + " location=" + map.getLocation());
