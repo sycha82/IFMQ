@@ -346,3 +346,61 @@ COMMENT ON TABLE  biz.wcs_outbound_order_d IS '출고 지시 상세 — OUTBOUND
 COMMENT ON COLUMN biz.wcs_outbound_order_d.qty          IS '출고 요청 수량 (OUTBOUND_CMD pickQty)';
 COMMENT ON COLUMN biz.wcs_outbound_order_d.completed_at IS 'OUTBOUND_COMPLETE 발송 시각 (이 PalletId 라인 기준)';
 COMMENT ON COLUMN biz.wcs_outbound_order_d.cancelled_at IS '취소 시각 (PalletId 단위)';
+
+
+-- ⑩ wcs_task_h — 셔틀 이동 작업(TASK) 이력 · 사용자 조회용
+--    wcs_shuttle_msg_log 가 전문(payload) 원본 이력이라면, 이 테이블은 "작업" 단위 요약 이력.
+--    wcs_task_id = {eqp_pallet_id}-{cycle_no} 인데 cycle_no 는 매핑(PRE03) 시에만 증가하므로
+--    같은 사이클의 입고 TASK 와 출고 TASK 가 동일한 wcs_task_id 를 공유한다 → task_type 으로 구분.
+CREATE TABLE IF NOT EXISTS biz.wcs_task_h (
+    task_seq        BIGSERIAL    NOT NULL,
+    wcs_task_id     VARCHAR(60)  NOT NULL,
+    task_type       VARCHAR(20)  NOT NULL,   -- INBOUND | OUTBOUND
+    task_status     VARCHAR(20)  NOT NULL DEFAULT 'DISPATCHED', -- DISPATCHED | STARTED | COMPLETED | FAILED
+    eqp_pallet_id   VARCHAR(30)  NOT NULL,
+    cycle_no        INTEGER      NOT NULL,
+    pallet_id       VARCHAR(30)  NULL,
+    order_task_id   VARCHAR(30)  NULL,
+    station_id      VARCHAR(30)  NULL,
+    shuttle_id      VARCHAR(30)  NULL,
+    sku_code        VARCHAR(30)  NULL,
+    lot_id          VARCHAR(30)  NULL,
+    qty             INTEGER      NULL,
+    task_message_id VARCHAR(60)  NULL,
+    ack_message_id  VARCHAR(60)  NULL,
+    ack_result      VARCHAR(20)  NULL,
+    fail_reason     VARCHAR(200) NULL,
+    dispatched_at   TIMESTAMP    NOT NULL,
+    started_at      TIMESTAMP    NULL,
+    completed_at    TIMESTAMP    NULL,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by      VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    updated_by      VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
+    CONSTRAINT pk_wcs_task_h PRIMARY KEY (task_seq),
+    CONSTRAINT uk_wcs_task_h__task UNIQUE (wcs_task_id, task_type)
+);
+
+CREATE INDEX IF NOT EXISTS ix_wcs_task_h__eqp
+    ON biz.wcs_task_h (eqp_pallet_id, dispatched_at DESC);
+CREATE INDEX IF NOT EXISTS ix_wcs_task_h__status
+    ON biz.wcs_task_h (task_status, dispatched_at DESC);
+CREATE INDEX IF NOT EXISTS ix_wcs_task_h__order
+    ON biz.wcs_task_h (order_task_id);
+CREATE INDEX IF NOT EXISTS ix_wcs_task_h__pallet
+    ON biz.wcs_task_h (pallet_id);
+
+COMMENT ON TABLE  biz.wcs_task_h IS '셔틀 이동 작업(TASK) 이력 — INBOUND_TASK/OUTBOUND_TASK 발행부터 START·DONE 까지의 작업 단위 요약 (사용자 조회용)';
+COMMENT ON COLUMN biz.wcs_task_h.wcs_task_id     IS 'WCS 발급 작업 식별자 (eqp_pallet_id-cycle_no). 입고/출고가 같은 값을 공유하므로 task_type 과 함께 사용';
+COMMENT ON COLUMN biz.wcs_task_h.task_type       IS 'INBOUND(입고 TASK) · OUTBOUND(출고 TASK)';
+COMMENT ON COLUMN biz.wcs_task_h.task_status     IS 'DISPATCHED(TASK 발행·ACK 수락) → STARTED(설비 착수) → COMPLETED(완료) / FAILED(실패 보고)';
+COMMENT ON COLUMN biz.wcs_task_h.order_task_id   IS 'WMS 지시 task_id (wcs_inbound_order_h / wcs_outbound_order_h 역추적)';
+COMMENT ON COLUMN biz.wcs_task_h.station_id      IS '입고=팔렛이 출발한 스테이션 · 출고=목적지 스테이션(destStation)';
+COMMENT ON COLUMN biz.wcs_task_h.shuttle_id      IS 'TASK_ACK/START/DONE 에서 보고된 셔틀 ID';
+COMMENT ON COLUMN biz.wcs_task_h.task_message_id IS 'TASK 발행 전문 message_id (wcs_shuttle_msg_log 역추적)';
+COMMENT ON COLUMN biz.wcs_task_h.ack_message_id  IS 'TASK_ACK 전문 message_id';
+COMMENT ON COLUMN biz.wcs_task_h.ack_result      IS 'TASK_ACK result (ACCEPTED 등)';
+COMMENT ON COLUMN biz.wcs_task_h.fail_reason     IS 'DONE 실패 보고 사유';
+COMMENT ON COLUMN biz.wcs_task_h.dispatched_at   IS 'TASK 발행 시각';
+COMMENT ON COLUMN biz.wcs_task_h.started_at      IS 'INBOUND_START / OUTBOUND_START 수신 시각';
+COMMENT ON COLUMN biz.wcs_task_h.completed_at    IS 'INBOUND_DONE / OUTBOUND_DONE 수신 시각 (실패 포함)';

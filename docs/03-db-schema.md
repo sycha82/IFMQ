@@ -17,8 +17,18 @@ status(RECEIVED→PROCESSING→COMPLETED / FAILED). 멱등키 `(direction, messa
 | wcs_eqp_pallet_m | 설비파레트 마스터 |
 | wcs_eqp_pallet_map (+_h) | EqpPalletId↔PalletId 매핑 현재상태 + 이력 (cycle_no) |
 | wcs_station | 스테이션 상태 (STATION_STATUS upsert, INBOUND/OUTBOUND) |
-| wcs_shuttle_msg_log | RCS REST 송수신 이력 (SEND/RECEIVE) |
+| wcs_shuttle_msg_log | RCS REST 송수신 이력 (SEND/RECEIVE) — 전문 payload 원본 |
+| wcs_task_h | **셔틀 작업(TASK) 이력** — TASK 발행~START~DONE 요약. 사용자 조회용 |
 | wcs_inventory (+vw_available) | 랙 재고. **available = quantity − reserved_qty** |
+
+### `wcs_task_h` (작업 이력)
+`wcs_shuttle_msg_log`가 전문 payload 원본이라면, 이 테이블은 **작업 단위 요약**이다
+(사용자가 JSON을 뒤지지 않고 작업 진행 상태를 확인하는 용도).
+- `wcs_task_id`(=`{eqpPalletId}-{cycleNo}`)는 **입고 TASK와 출고 TASK가 공유**한다
+  (cycle_no는 매핑 PRE03 시점에만 증가). 따라서 유니크키는 `(wcs_task_id, task_type)`.
+- `task_status` : `DISPATCHED`(TASK 발행·ACK 수락) → `STARTED`(설비 착수) → `COMPLETED` / `FAILED`
+- 적재 시점 : TASK 발행 시 upsert(재발행이면 행 재무장) / START·DONE 시 update
+- 조회 API : `GET /api/tasks` (taskType·taskStatus·eqpPalletId·limit 필터) · `GET /api/tasks/{wcsTaskId}`
 
 ## 상태 모델
 

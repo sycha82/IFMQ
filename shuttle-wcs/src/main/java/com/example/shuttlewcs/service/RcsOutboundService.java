@@ -34,6 +34,7 @@ public class RcsOutboundService {
     private final WcsOutboundOrderHMapper orderHMapper;
     private final WcsInventoryMapper inventoryMapper;
     private final RcsMsgLogService rcsMsgLogService;
+    private final TaskHistoryService taskHistoryService;
 
     /**
      * OUTBOUND_START — 설비 출고 착수 통보 수신.
@@ -80,6 +81,10 @@ public class RcsOutboundService {
                         + " destStation=" + dto.getDestStation())
                 .build());
 
+        // TASK 이력 · 착수 반영
+        taskHistoryService.markStarted(TaskHistoryService.TYPE_OUTBOUND,
+                dto.getWcsTaskId(), dto.getShuttleId(), now);
+
         log.info("[RCS] OUTBOUND_START 수신 · 랙 이탈(OUTBOUNDING) | wcsTaskId={} eqpPalletId={} shuttleId={}",
                 dto.getWcsTaskId(), dto.getEqpPalletId(), dto.getShuttleId());
     }
@@ -116,6 +121,8 @@ public class RcsOutboundService {
 
         // 2. 실패 보고 — 상태 전이 없이 실패 ACK
         if (!"COMPLETED".equals(dto.getStatus())) {
+            taskHistoryService.markFailed(TaskHistoryService.TYPE_OUTBOUND,
+                    dto.getWcsTaskId(), dto.getShuttleId(), dto.getFailReason(), now);
             return replyDoneAck(dto, "FAILED", "출고 실패 보고 수신: " + dto.getFailReason());
         }
 
@@ -142,6 +149,10 @@ public class RcsOutboundService {
                 .eventBy("RCS")
                 .note("wcsTaskId=" + dto.getWcsTaskId() + " shuttleId=" + dto.getShuttleId())
                 .build());
+
+        // TASK 이력 · 완료 반영
+        taskHistoryService.markCompleted(TaskHistoryService.TYPE_OUTBOUND,
+                dto.getWcsTaskId(), dto.getShuttleId(), now);
 
         // 4. 출고 지시(task) 전체 완료 시 헤더 COMPLETED
         for (WcsOutboundOrderD line : lines) {

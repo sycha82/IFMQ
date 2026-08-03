@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.shuttlewcs.db.WcsTaskHMapper">
+
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsTaskH">
+        <id     property="taskSeq"       column="task_seq"/>
+        <result property="wcsTaskId"     column="wcs_task_id"/>
+        <result property="taskType"      column="task_type"/>
+        <result property="taskStatus"    column="task_status"/>
+        <result property="eqpPalletId"   column="eqp_pallet_id"/>
+        <result property="cycleNo"       column="cycle_no"/>
+        <result property="palletId"      column="pallet_id"/>
+        <result property="orderTaskId"   column="order_task_id"/>
+        <result property="stationId"     column="station_id"/>
+        <result property="shuttleId"     column="shuttle_id"/>
+        <result property="skuCode"       column="sku_code"/>
+        <result property="lotId"         column="lot_id"/>
+        <result property="qty"           column="qty"/>
+        <result property="taskMessageId" column="task_message_id"/>
+        <result property="ackMessageId"  column="ack_message_id"/>
+        <result property="ackResult"     column="ack_result"/>
+        <result property="failReason"    column="fail_reason"/>
+        <result property="dispatchedAt"  column="dispatched_at"/>
+        <result property="startedAt"     column="started_at"/>
+        <result property="completedAt"   column="completed_at"/>
+        <result property="createdAt"     column="created_at"/>
+        <result property="updatedAt"     column="updated_at"/>
+        <result property="createdBy"     column="created_by"/>
+        <result property="updatedBy"     column="updated_by"/>
+    </resultMap>
+
+    <!-- TASK 발행 적재. 재발행(거부 후 재시도)이면 기존 행을 재무장한다. -->
+    <insert id="upsertDispatched" parameterType="com.example.shuttlewcs.db.WcsTaskH">
+        INSERT INTO biz.wcs_task_h (
+            wcs_task_id, task_type, task_status,
+            eqp_pallet_id, cycle_no, pallet_id, order_task_id,
+            station_id, shuttle_id, sku_code, lot_id, qty,
+            task_message_id, ack_message_id, ack_result,
+            dispatched_at, created_by, updated_by
+        ) VALUES (
+            #{wcsTaskId}, #{taskType}, 'DISPATCHED',
+            #{eqpPalletId}, #{cycleNo}, #{palletId}, #{orderTaskId},
+            #{stationId}, #{shuttleId}, #{skuCode}, #{lotId}, #{qty},
+            #{taskMessageId}, #{ackMessageId}, #{ackResult},
+            #{dispatchedAt},
+            COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
+        )
+        ON CONFLICT (wcs_task_id, task_type) DO UPDATE SET
+            task_status     = 'DISPATCHED',
+            pallet_id       = EXCLUDED.pallet_id,
+            order_task_id   = EXCLUDED.order_task_id,
+            station_id      = EXCLUDED.station_id,
+            shuttle_id      = EXCLUDED.shuttle_id,
+            sku_code        = EXCLUDED.sku_code,
+            lot_id          = EXCLUDED.lot_id,
+            qty             = EXCLUDED.qty,
+            task_message_id = EXCLUDED.task_message_id,
+            ack_message_id  = EXCLUDED.ack_message_id,
+            ack_result      = EXCLUDED.ack_result,
+            fail_reason     = NULL,
+            dispatched_at   = EXCLUDED.dispatched_at,
+            started_at      = NULL,
+            completed_at    = NULL,
+            updated_at      = CURRENT_TIMESTAMP
+    </insert>
+
+    <update id="markStarted">
+        UPDATE biz.wcs_task_h
+        SET task_status = 'STARTED',
+            started_at  = #{startedAt},
+            shuttle_id  = COALESCE(#{shuttleId}, shuttle_id),
+            updated_at  = CURRENT_TIMESTAMP
+        WHERE wcs_task_id = #{wcsTaskId}
+          AND task_type   = #{taskType}
+    </update>
+
+    <update id="markCompleted">
+        UPDATE biz.wcs_task_h
+        SET task_status  = 'COMPLETED',
+            completed_at = #{completedAt},
+            shuttle_id   = COALESCE(#{shuttleId}, shuttle_id),
+            updated_at   = CURRENT_TIMESTAMP
+        WHERE wcs_task_id = #{wcsTaskId}
+          AND task_type   = #{taskType}
+    </update>
+
+    <update id="markFailed">
+        UPDATE biz.wcs_task_h
+        SET task_status  = 'FAILED',
+            fail_reason  = #{failReason},
+            completed_at = #{failedAt},
+            shuttle_id   = COALESCE(#{shuttleId}, shuttle_id),
+            updated_at   = CURRENT_TIMESTAMP
+        WHERE wcs_task_id = #{wcsTaskId}
+          AND task_type   = #{taskType}
+    </update>
+
+    <select id="findRecent" resultMap="rs">
+        SELECT * FROM biz.wcs_task_h
+        <where>
+            <if test="taskType   != null and taskType   != ''"> AND task_type     = #{taskType}   </if>
+            <if test="taskStatus != null and taskStatus != ''"> AND task_status   = #{taskStatus} </if>
+            <if test="eqpPalletId != null and eqpPalletId != ''"> AND eqp_pallet_id = #{eqpPalletId} </if>
+        </where>
+        ORDER BY dispatched_at DESC, task_seq DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByWcsTaskId" resultMap="rs">
+        SELECT * FROM biz.wcs_task_h
+        WHERE wcs_task_id = #{wcsTaskId}
+        ORDER BY dispatched_at DESC, task_seq DESC
+    </select>
+
+</mapper>

@@ -38,6 +38,7 @@ public class UserOutboundRequestService {
     private final WcsEqpPalletMapHMapper eqpPalletMapHMapper;
     private final RcsClient rcsClient;
     private final RcsMsgLogService rcsMsgLogService;
+    private final TaskHistoryService taskHistoryService;
 
     /**
      * 사용자 출고 요청(작업자 트리거) — cmd_status='RECEIVED' 출고 지시를 순차 조회해
@@ -133,6 +134,9 @@ public class UserOutboundRequestService {
                     wcsTaskId, ack.getMessage());
             return false;
         }
+
+        // TASK 이력 적재 (사용자 조회용 — payload 없이 작업 단위로 확인)
+        taskHistoryService.recordOutboundDispatched(taskDto, ack, map, line, order.getTaskId());
 
         // 상태 전이: eqpPallet STORED → IN_PROGRESS (task 배정). location은 IN_RACK 유지 —
         // 팔렛이 실제 랙을 떠나는 OUTBOUNDING 전이는 설비 착수(OUTBOUND_START) 시점에 처리.

@@ -45,6 +45,7 @@ public class RcsInboundService {
     private final RcsClient rcsClient;
     private final WcsAppClient wcsAppClient;
     private final RcsMsgLogService rcsMsgLogService;
+    private final TaskHistoryService taskHistoryService;
 
     // API 01 · STATION_STATUS — 스테이션 상태 보고 반영 (upsert)
     @Transactional
@@ -69,6 +70,10 @@ public class RcsInboundService {
 
         // 셔틀이 팔렛을 집어 스테이션을 떠남 → 점유 해제 BUSY → AVAILABLE
         stationMapper.freeByEqpPallet(dto.getEqpPalletId(), now);
+
+        // TASK 이력 · 착수 반영
+        taskHistoryService.markStarted(TaskHistoryService.TYPE_INBOUND,
+                dto.getWcsTaskId(), dto.getShuttleId(), now);
 
         log.info("[RCS] INBOUND_START 수신 · 스테이션 해제 | stationId={} eqpPalletId={} wcsTaskId={} shuttleId={}",
                 dto.getStationId(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto.getShuttleId());
@@ -152,7 +157,10 @@ public class RcsInboundService {
                     + " message=" + ack.getMessage());
         }
 
-        // 5. eqpPallet 상태 전이 MAPPED → IN_PROGRESS
+        // 5. TASK 이력 적재 (사용자 조회용 — payload 없이 작업 단위로 확인)
+        taskHistoryService.recordInboundDispatched(taskDto, ack, map, line);
+
+        // 6. eqpPallet 상태 전이 MAPPED → IN_PROGRESS
         eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "IN_PROGRESS");
 
         eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
@@ -197,6 +205,8 @@ public class RcsInboundService {
 
         // 2. 실패 보고 — 재고 반영 없이 실패 ACK
         if (!"COMPLETED".equals(dto.getStatus())) {
+            taskHistoryService.markFailed(TaskHistoryService.TYPE_INBOUND,
+                    dto.getWcsTaskId(), dto.getShuttleId(), dto.getFailReason(), now);
             return replyDoneAck(dto, "FAILED", "입고 실패 보고 수신: " + dto.getFailReason());
         }
 
@@ -224,6 +234,10 @@ public class RcsInboundService {
                 .eventBy("RCS")
                 .note("wcsTaskId=" + dto.getWcsTaskId() + " shuttleId=" + dto.getShuttleId())
                 .build());
+
+        // TASK 이력 · 완료 반영
+        taskHistoryService.markCompleted(TaskHistoryService.TYPE_INBOUND,
+                dto.getWcsTaskId(), dto.getShuttleId(), now);
 
         // 4. task 전체 완료 시 헤더 COMPLETED
         int remaining = orderDMapper.countActiveIncompleteByTaskId(map.getTaskId());
