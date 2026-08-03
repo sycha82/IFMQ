@@ -19,7 +19,8 @@ public interface ShuttleWcsClient {
     @PostMapping("/internal/outbound-order")
     OutboundCmdAckDto notifyOutboundOrder(@RequestBody OutboundCmdDto dto);
 
-    // 출고 시작 — 수신된(RECEIVED) 출고 지시를 순차 OUTBOUND_TASK 발행 위임
-    @PostMapping("/internal/outbound-start")
-    String startOutbound();
+    // 사용자 출고 요청(작업자 트리거) — 수신된(RECEIVED) 출고 지시를 순차 OUTBOUND_TASK 발행 위임
+    // (RCS→WCS 이벤트 OUTBOUND_START 와 구분해 user-outbound-request 로 명명)
+    @PostMapping("/internal/user-outbound-request")
+    String requestOutbound();
 }

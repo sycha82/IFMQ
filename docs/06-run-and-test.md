@@ -32,7 +32,7 @@ curl -X POST http://localhost:9003/test/inbound-start    # 착수 → 스테이�
 curl -X POST http://localhost:9003/test/inbound-done
 curl -X POST http://localhost:9004/test/outbound-cmd
 curl -X POST http://localhost:9003/test/station-status-out
-curl -X POST http://localhost:9001/test/outbound-start    # 작업자 트리거 → OUTBOUND_TASK 발행
+curl -X POST http://localhost:9001/test/user-outbound-request  # 작업자 트리거 → OUTBOUND_TASK 발행
 curl -X POST http://localhost:9003/test/outbound-start    # 설비 착수 → OUTBOUNDING 전이 (RCS)
 curl -X POST http://localhost:9003/test/outbound-done
 

@@ -44,9 +44,9 @@ public class TestController {
         return ResponseEntity.ok("INBOUND_COMPLETE published: " + dto.getMessageId());
     }
 
-    @PostMapping("/outbound-start")
-    public ResponseEntity<String> startOutbound() {
-        return ResponseEntity.ok(shuttleWcsClient.startOutbound());
+    @PostMapping("/user-outbound-request")
+    public ResponseEntity<String> requestOutbound() {
+        return ResponseEntity.ok(shuttleWcsClient.requestOutbound());
     }
 
     private InboundCmdDto defaultInboundCmd() {

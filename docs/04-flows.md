@@ -19,8 +19,8 @@ WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(
         검증: taskId 중복 / 매핑 미존재 / STORED 아님 / 이미 예약된 팔렛 → REJECTED
         통과: H/D 저장(RECEIVED) + 팔렛 전체 예약(reserved_qty=quantity, 가용재고 제외)
         → OUTBOUND_CMD_ACK(MQ) 회신
-[03/04] 출고 시작(wcs-app CLI 2번, 작업자 트리거) → /internal/outbound-start
-        RECEIVED 지시 전체를 팔렛 라인별 순차 OUTBOUND_TASK 발행 (일괄, 완료 대기 없음)
+[03/04] 출고 요청(wcs-app CLI 2번, 작업자 트리거) → /internal/user-outbound-request
+        RECEIVED 지시 전체를 팔렛 라인별 순차 OUTBOUND_TASK 발행 (한 번의 요청 안 for-loop, 주기·타이머 없음, 완료 대기 없음)
         destStation = OUTBOUND 스테이션 1건(가용성 판정 없음 — 버퍼 게이팅은 주체 미정으로 보류)
         성공 라인: STORED→IN_PROGRESS (location IN_RACK 유지) / 전 라인 성공 시 H→DISPATCHED
         스킵(best-effort): 매핑 미존재·REJECTED 라인은 건너뛰고 계속

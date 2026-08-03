@@ -26,7 +26,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class OutboundStartService {
+public class UserOutboundRequestService {
 
     private static final String OUTBOUND_STATION_TYPE = "OUTBOUND";
     private static final String SHIPPABLE_MAP_STATUS = "STORED";
@@ -40,13 +40,14 @@ public class OutboundStartService {
     private final RcsMsgLogService rcsMsgLogService;
 
     /**
-     * 출고 시작 — cmd_status='RECEIVED' 출고 지시를 순차 조회해 팔렛 라인별로 OUTBOUND_TASK 발행.
-     * destStation은 OUTBOUND 스테이션 1건으로 지정(가용성 판정은 하지 않음).
+     * 사용자 출고 요청(작업자 트리거) — cmd_status='RECEIVED' 출고 지시를 순차 조회해
+     * 팔렛 라인별로 OUTBOUND_TASK 발행. destStation은 OUTBOUND 스테이션 1건으로 지정(가용성 판정 없음).
      * 라인 단위 best-effort — 매핑 미존재·거부 라인은 스킵하고 다음 라인 진행.
      * task 내 전체 라인 발송 성공 시 지시 헤더 cmd_status → DISPATCHED.
+     * (RCS→WCS 이벤트 OUTBOUND_START 와 이름이 겹치지 않도록 user-outbound-request 로 구분)
      */
     @Transactional
-    public String startOutbound() {
+    public String requestOutbound() {
         WcsStation station = stationMapper.findFirstByType(OUTBOUND_STATION_TYPE);
         if (station == null) {
             throw new RcsProtocolException("등록된 OUTBOUND 스테이션 없음 — STATION_STATUS(출고) 먼저 발행 필요");
@@ -69,7 +70,7 @@ public class OutboundStartService {
                 try {
                     ok = dispatchLine(order, line, destStation);
                 } catch (Exception e) {
-                    log.error("[OUTBOUND_START] 발송 실패 | taskId={} palletId={} error={}",
+                    log.error("[USER_OUT_REQ] 발송 실패 | taskId={} palletId={} error={}",
                             order.getTaskId(), line.getPalletId(), e.getMessage());
                     ok = false;
                 }
@@ -83,13 +84,13 @@ public class OutboundStartService {
 
             if (allDispatched) {
                 orderHMapper.updateStatus(order.getTaskId(), "DISPATCHED");
-                log.info("[OUTBOUND_START] 지시 발송 완료 | taskId={}", order.getTaskId());
+                log.info("[USER_OUT_REQ] 지시 발송 완료 | taskId={}", order.getTaskId());
             }
         }
 
-        String summary = String.format("출고 시작 | destStation=%s 대상지시=%d건 발송=%d건 스킵=%d건",
+        String summary = String.format("출고 요청 | destStation=%s 대상지시=%d건 발송=%d건 스킵=%d건",
                 destStation, orders.size(), dispatched, skipped);
-        log.info("[OUTBOUND_START] {}", summary);
+        log.info("[USER_OUT_REQ] {}", summary);
         return summary;
     }
 
@@ -97,7 +98,7 @@ public class OutboundStartService {
     private boolean dispatchLine(WcsOutboundOrderH order, WcsOutboundOrderD line, String destStation) {
         WcsEqpPalletMap map = eqpPalletMapMapper.findByPalletId(line.getPalletId());
         if (map == null || !SHIPPABLE_MAP_STATUS.equals(map.getMapStatus())) {
-            log.warn("[OUTBOUND_START] 스킵 · 출고 불가 | taskId={} palletId={} mapStatus={}",
+            log.warn("[USER_OUT_REQ] 스킵 · 출고 불가 | taskId={} palletId={} mapStatus={}",
                     order.getTaskId(), line.getPalletId(), map != null ? map.getMapStatus() : "NONE");
             return false;
         }
@@ -117,18 +118,18 @@ public class OutboundStartService {
 
         rcsMsgLogService.logSend("OUTBOUND_TASK", taskDto.getMessageId(), null,
                 destStation, map.getEqpPalletId(), wcsTaskId, taskDto, null);
-        log.info("[OUTBOUND_START] OUTBOUND_TASK 발행 | wcsTaskId={} eqpPalletId={} palletId={} destStation={}",
+        log.info("[USER_OUT_REQ] OUTBOUND_TASK 발행 | wcsTaskId={} eqpPalletId={} palletId={} destStation={}",
                 wcsTaskId, map.getEqpPalletId(), line.getPalletId(), destStation);
 
         OutboundTaskAckDto ack = rcsClient.sendOutboundTask(taskDto);
 
         rcsMsgLogService.logReceive("OUTBOUND_TASK_ACK", ack.getMessageId(), ack.getRefMessageId(),
                 destStation, map.getEqpPalletId(), wcsTaskId, ack, ack.getResult());
-        log.info("[OUTBOUND_START] OUTBOUND_TASK_ACK 수신 | wcsTaskId={} result={} shuttleId={}",
+        log.info("[USER_OUT_REQ] OUTBOUND_TASK_ACK 수신 | wcsTaskId={} result={} shuttleId={}",
                 ack.getWcsTaskId(), ack.getResult(), ack.getShuttleId());
 
         if (!"ACCEPTED".equals(ack.getResult())) {
-            log.warn("[OUTBOUND_START] OUTBOUND_TASK 거부 | wcsTaskId={} message={}",
+            log.warn("[USER_OUT_REQ] OUTBOUND_TASK 거부 | wcsTaskId={} message={}",
                     wcsTaskId, ack.getMessage());
             return false;
         }

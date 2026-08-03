@@ -140,7 +140,7 @@
 | 02 OUTBOUND_CMD_ACK | ✅ | OutboundOrderService(매핑+예약 검증) → OutboundCmdAckProducer |
 | 02-A OUTBOUND_MISMATCH | ❌ 미구현 | 재고 대사(wcs_pallet_line_h vs CMD) |
 | 02-B CONFIRM (Case B) | ❌ 미구현 | Case B 자체 미구현 |
-| 03/04 OUTBOUND_TASK/ACK | ✅ | OutboundStartService (작업자 출고 시작 트리거) |
+| 03/04 OUTBOUND_TASK/ACK | ✅ | UserOutboundRequestService (작업자 출고 요청 트리거 /internal/user-outbound-request) |
 | OUTBOUND_START (설비 착수) | ✅ (설계 확장) | RcsOutboundService.receiveOutboundStart (IN_RACK→OUTBOUNDING) |
 | 05/06 OUTBOUND_DONE/ACK | ✅ | RcsOutboundService.receiveOutboundDone |
 | 07 OUTBOUND_COMPLETE | ❌ 미구현 | WMS 팔렛 단위 완료 통보 |
