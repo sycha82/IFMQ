@@ -9,7 +9,9 @@
    (`bind(inboundCmdQueue())`). 파라미터 주입은 `-parameters` 미적용 시 모호성 오류.
 7. 스키마 변경 시 `schema.sql` + 엔티티 + Mapper 인터페이스 + XML 동반 수정.
 8. 코드 스타일: Lombok `@SuperBuilder`(+`@NoArgsConstructor`), 로그/주석 한국어.
-9. wcsTaskId 포맷 = `{eqpPalletId}-{cycleNo}`.
+9. wcsTaskId 포맷 = `TSK-{8자리}` (시퀀스 `biz.wcs_task_seq` 채번). TASK 발행 시마다 신규 발급 —
+   입고 TASK와 출고 TASK가 각각 고유 ID를 갖는다. 팔렛 상태에서 유도하지 말고
+   `TaskHistoryService.nextWcsTaskId()`로 채번하며, 수신 검증은 `requireTask(...)`(wcs_task_h 조회)로 한다.
 
 ## 제외 범위 (현 단계)
 인증/보안 · Dead Letter Queue · 재시도 정책 · 동기 타임아웃 처리.

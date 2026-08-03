@@ -31,8 +31,14 @@
         <result property="updatedBy"     column="updated_by"/>
     </resultMap>
 
-    <!-- TASK 발행 적재. 재발행(거부 후 재시도)이면 기존 행을 재무장한다. -->
-    <insert id="upsertDispatched" parameterType="com.example.shuttlewcs.db.WcsTaskH">
+    <!-- 작업 채번 — wcs_task_id = TSK-{8자리 0패딩}. TASK 발행 시마다 새로 발급된다. -->
+    <select id="nextWcsTaskId" resultType="string">
+        SELECT 'TSK-' || LPAD(nextval('biz.wcs_task_seq')::text, 8, '0')
+    </select>
+
+    <!-- TASK 발행 적재. wcs_task_id 는 발행 시점에 채번되므로 항상 신규 행이다. -->
+    <insert id="insertDispatched" parameterType="com.example.shuttlewcs.db.WcsTaskH"
+            useGeneratedKeys="true" keyProperty="taskSeq">
         INSERT INTO biz.wcs_task_h (
             wcs_task_id, task_type, task_status,
             eqp_pallet_id, cycle_no, pallet_id, order_task_id,
@@ -47,23 +53,6 @@
             #{dispatchedAt},
             COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
         )
-        ON CONFLICT (wcs_task_id, task_type) DO UPDATE SET
-            task_status     = 'DISPATCHED',
-            pallet_id       = EXCLUDED.pallet_id,
-            order_task_id   = EXCLUDED.order_task_id,
-            station_id      = EXCLUDED.station_id,
-            shuttle_id      = EXCLUDED.shuttle_id,
-            sku_code        = EXCLUDED.sku_code,
-            lot_id          = EXCLUDED.lot_id,
-            qty             = EXCLUDED.qty,
-            task_message_id = EXCLUDED.task_message_id,
-            ack_message_id  = EXCLUDED.ack_message_id,
-            ack_result      = EXCLUDED.ack_result,
-            fail_reason     = NULL,
-            dispatched_at   = EXCLUDED.dispatched_at,
-            started_at      = NULL,
-            completed_at    = NULL,
-            updated_at      = CURRENT_TIMESTAMP
     </insert>
 
     <update id="markStarted">
@@ -108,10 +97,10 @@
         LIMIT #{limit}
     </select>
 
-    <select id="findByWcsTaskId" resultMap="rs">
+    <!-- wcs_task_id 는 전역 고유이므로 단건 -->
+    <select id="findOneByWcsTaskId" resultMap="rs">
         SELECT * FROM biz.wcs_task_h
         WHERE wcs_task_id = #{wcsTaskId}
-        ORDER BY dispatched_at DESC, task_seq DESC
     </select>
 
 </mapper>

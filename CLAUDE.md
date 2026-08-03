@@ -29,4 +29,5 @@ WCS와 RCS(설비제어) 간 **REST(Feign) 동기 호출**로 구성된 4Way 셔
 4. 라우팅 키·Exchange·큐·base-url은 application.yml에서 관리(하드코딩 금지).
 5. 스키마 변경 시 `schema.sql` + 엔티티 + Mapper + XML 동반 수정.
 6. 코드 스타일: Lombok `@SuperBuilder`(+`@NoArgsConstructor`), 로그/주석 한국어.
-7. wcsTaskId 포맷 = `{eqpPalletId}-{cycleNo}`.
+7. wcsTaskId 포맷 = `TSK-{8자리}` (시퀀스 `biz.wcs_task_seq` 채번). TASK 발행 시마다 신규 발급 —
+   입고/출고가 각각 고유 ID를 가지며, 팔렛 상태에서 유도하지 않는다(검증은 `wcs_task_h` 조회).

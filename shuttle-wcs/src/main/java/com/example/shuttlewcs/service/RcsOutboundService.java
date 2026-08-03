@@ -49,11 +49,9 @@ public class RcsOutboundService {
         if (map == null) {
             throw new RcsProtocolException("미등록 eqpPallet | eqpPalletId=" + dto.getEqpPalletId());
         }
-        String expectedTaskId = map.getEqpPalletId() + "-" + map.getCycleNo();
-        if (!expectedTaskId.equals(dto.getWcsTaskId())) {
-            throw new RcsProtocolException("wcsTaskId 불일치 | 수신=" + dto.getWcsTaskId()
-                    + " 현재=" + expectedTaskId);
-        }
+        // wcsTaskId 는 독립 채번이므로 작업 이력 조회로 검증 (존재·방향·설비파레트 일치)
+        taskHistoryService.requireTask(TaskHistoryService.TYPE_OUTBOUND,
+                dto.getWcsTaskId(), dto.getEqpPalletId());
         // 출고 TASK 발행분(IN_PROGRESS/IN_RACK)만 착수 가능
         if (!"IN_PROGRESS".equals(map.getMapStatus()) || !"IN_RACK".equals(map.getLocation())) {
             throw new RcsProtocolException("출고 착수 가능 상태(IN_PROGRESS/IN_RACK) 아님 | eqpPalletId="
@@ -103,11 +101,9 @@ public class RcsOutboundService {
         if (map == null) {
             throw new RcsProtocolException("미등록 eqpPallet | eqpPalletId=" + dto.getEqpPalletId());
         }
-        String expectedTaskId = map.getEqpPalletId() + "-" + map.getCycleNo();
-        if (!expectedTaskId.equals(dto.getWcsTaskId())) {
-            throw new RcsProtocolException("wcsTaskId 불일치 | 수신=" + dto.getWcsTaskId()
-                    + " 현재=" + expectedTaskId);
-        }
+        // wcsTaskId 는 독립 채번이므로 작업 이력 조회로 검증 (존재·방향·설비파레트 일치)
+        taskHistoryService.requireTask(TaskHistoryService.TYPE_OUTBOUND,
+                dto.getWcsTaskId(), dto.getEqpPalletId());
         // 출고 진행중 상태(OUTBOUND_START 착수분)만 완료 처리 — 입고 IN_PROGRESS와 location으로 구분
         if (!"IN_PROGRESS".equals(map.getMapStatus()) || !"OUTBOUNDING".equals(map.getLocation())) {
             throw new RcsProtocolException("출고 진행중(IN_PROGRESS/OUTBOUNDING) 상태 아님 | eqpPalletId="

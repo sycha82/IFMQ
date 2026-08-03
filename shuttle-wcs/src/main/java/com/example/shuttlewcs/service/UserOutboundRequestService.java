@@ -104,7 +104,7 @@ public class UserOutboundRequestService {
             return false;
         }
 
-        String wcsTaskId = map.getEqpPalletId() + "-" + map.getCycleNo();
+        String wcsTaskId = taskHistoryService.nextWcsTaskId();   // TSK-{8자리} 작업 단위 채번
         OutboundTaskDto taskDto = OutboundTaskDto.builder()
                 .messageType("OUTBOUND_TASK")
                 .messageId(UUID.randomUUID().toString())

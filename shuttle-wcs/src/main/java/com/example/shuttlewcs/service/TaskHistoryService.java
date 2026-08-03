@@ -9,6 +9,7 @@ import com.example.shuttlewcs.db.WcsInboundOrderD;
 import com.example.shuttlewcs.db.WcsOutboundOrderD;
 import com.example.shuttlewcs.db.WcsTaskH;
 import com.example.shuttlewcs.db.WcsTaskHMapper;
+import com.example.shuttlewcs.exception.RcsProtocolException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,10 +33,15 @@ public class TaskHistoryService {
 
     private final WcsTaskHMapper mapper;
 
+    // 작업 채번 — TASK 발행 직전에 호출. wcs_task_id = TSK-{8자리}
+    public String nextWcsTaskId() {
+        return mapper.nextWcsTaskId();
+    }
+
     // INBOUND_TASK 발행(ACK 수락) 시점 적재
     public void recordInboundDispatched(InboundTaskDto task, InboundTaskAckDto ack,
                                         WcsEqpPalletMap map, WcsInboundOrderD line) {
-        mapper.upsertDispatched(WcsTaskH.builder()
+        mapper.insertDispatched(WcsTaskH.builder()
                 .wcsTaskId(task.getWcsTaskId())
                 .taskType(TYPE_INBOUND)
                 .eqpPalletId(map.getEqpPalletId())
@@ -61,7 +67,7 @@ public class TaskHistoryService {
     public void recordOutboundDispatched(OutboundTaskDto task, OutboundTaskAckDto ack,
                                          WcsEqpPalletMap map, WcsOutboundOrderD line,
                                          String orderTaskId) {
-        mapper.upsertDispatched(WcsTaskH.builder()
+        mapper.insertDispatched(WcsTaskH.builder()
                 .wcsTaskId(task.getWcsTaskId())
                 .taskType(TYPE_OUTBOUND)
                 .eqpPalletId(map.getEqpPalletId())
@@ -106,8 +112,29 @@ public class TaskHistoryService {
         return mapper.findRecent(taskType, taskStatus, eqpPalletId, limit);
     }
 
-    public List<WcsTaskH> findByWcsTaskId(String wcsTaskId) {
-        return mapper.findByWcsTaskId(wcsTaskId);
+    public WcsTaskH findOneByWcsTaskId(String wcsTaskId) {
+        return mapper.findOneByWcsTaskId(wcsTaskId);
+    }
+
+    /**
+     * RCS가 보고한 wcsTaskId 검증 — 해당 작업이 존재하고, 기대한 방향(INBOUND/OUTBOUND)이며,
+     * 보고된 eqpPalletId 와 일치하는지 확인한 뒤 작업 행을 돌려준다.
+     * wcsTaskId 가 팔렛 상태에서 유도되지 않는 독립 채번이므로 검증은 이 조회로 수행한다.
+     */
+    public WcsTaskH requireTask(String taskType, String wcsTaskId, String eqpPalletId) {
+        WcsTaskH task = mapper.findOneByWcsTaskId(wcsTaskId);
+        if (task == null) {
+            throw new RcsProtocolException("미등록 작업 | wcsTaskId=" + wcsTaskId);
+        }
+        if (!taskType.equals(task.getTaskType())) {
+            throw new RcsProtocolException("작업 유형 불일치 | wcsTaskId=" + wcsTaskId
+                    + " 기대=" + taskType + " 실제=" + task.getTaskType());
+        }
+        if (eqpPalletId != null && !eqpPalletId.equals(task.getEqpPalletId())) {
+            throw new RcsProtocolException("작업-설비파레트 불일치 | wcsTaskId=" + wcsTaskId
+                    + " 작업=" + task.getEqpPalletId() + " 수신=" + eqpPalletId);
+        }
+        return task;
     }
 
     // TASK 이력이 없는 건(기능 도입 전 데이터 등)은 본 처리를 막지 않고 경고만 남긴다.

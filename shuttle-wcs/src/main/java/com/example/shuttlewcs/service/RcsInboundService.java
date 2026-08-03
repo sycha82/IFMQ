@@ -68,6 +68,10 @@ public class RcsInboundService {
         rcsMsgLogService.logReceive("INBOUND_START", dto.getMessageId(), dto.getRefMessageId(),
                 dto.getStationId(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto, null);
 
+        // wcsTaskId 는 독립 채번이므로 작업 이력 조회로 검증 (존재·방향·설비파레트 일치)
+        taskHistoryService.requireTask(TaskHistoryService.TYPE_INBOUND,
+                dto.getWcsTaskId(), dto.getEqpPalletId());
+
         // 셔틀이 팔렛을 집어 스테이션을 떠남 → 점유 해제 BUSY → AVAILABLE
         stationMapper.freeByEqpPallet(dto.getEqpPalletId(), now);
 
@@ -116,7 +120,7 @@ public class RcsInboundService {
 
     // API 03 · INBOUND_TASK 발행 + API 04 INBOUND_TASK_ACK 동기 수신
     private void sendInboundTask(BcrReadDto bcrRead, WcsEqpPalletMap map) {
-        String wcsTaskId = map.getEqpPalletId() + "-" + map.getCycleNo();
+        String wcsTaskId = taskHistoryService.nextWcsTaskId();   // TSK-{8자리} 작업 단위 채번
 
         List<WcsInboundOrderD> lines = orderDMapper.findActiveByPalletId(map.getPalletId());
         if (lines.isEmpty()) {
@@ -188,11 +192,9 @@ public class RcsInboundService {
         if (map == null) {
             throw new RcsProtocolException("미등록 eqpPallet | eqpPalletId=" + dto.getEqpPalletId());
         }
-        String expectedTaskId = map.getEqpPalletId() + "-" + map.getCycleNo();
-        if (!expectedTaskId.equals(dto.getWcsTaskId())) {
-            throw new RcsProtocolException("wcsTaskId 불일치 | 수신=" + dto.getWcsTaskId()
-                    + " 현재=" + expectedTaskId);
-        }
+        // wcsTaskId 는 독립 채번이므로 작업 이력 조회로 검증 (존재·방향·설비파레트 일치)
+        taskHistoryService.requireTask(TaskHistoryService.TYPE_INBOUND,
+                dto.getWcsTaskId(), dto.getEqpPalletId());
         if (!"IN_PROGRESS".equals(map.getMapStatus())) {
             throw new RcsProtocolException("진행중(IN_PROGRESS) 상태 아님 | eqpPalletId="
                     + dto.getEqpPalletId() + " mapStatus=" + map.getMapStatus());

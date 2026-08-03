@@ -9,11 +9,11 @@ import java.util.List;
 @Mapper
 public interface WcsTaskHMapper {
 
-    /**
-     * TASK 발행 적재. 동일 (wcs_task_id, task_type) 재발행(거부 후 재시도 등) 시
-     * 기존 행을 재무장(dispatched_at 갱신 · start/complete 초기화)한다.
-     */
-    void upsertDispatched(WcsTaskH task);
+    // 작업 채번 — wcs_task_id = TSK-{8자리}. TASK 발행 시마다 새로 발급.
+    String nextWcsTaskId();
+
+    // TASK 발행 적재 (wcs_task_id 가 발행 시 채번되므로 항상 신규 행)
+    void insertDispatched(WcsTaskH task);
 
     // 설비 착수(INBOUND_START · OUTBOUND_START) 반영
     int markStarted(@Param("wcsTaskId") String wcsTaskId,
@@ -39,5 +39,5 @@ public interface WcsTaskHMapper {
                               @Param("eqpPalletId") String eqpPalletId,
                               @Param("limit") int limit);
 
-    List<WcsTaskH> findByWcsTaskId(@Param("wcsTaskId") String wcsTaskId);
+    WcsTaskH findOneByWcsTaskId(@Param("wcsTaskId") String wcsTaskId);
 }

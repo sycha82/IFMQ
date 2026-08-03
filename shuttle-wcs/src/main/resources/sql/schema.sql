@@ -350,8 +350,12 @@ COMMENT ON COLUMN biz.wcs_outbound_order_d.cancelled_at IS '취소 시각 (Palle
 
 -- ⑩ wcs_task_h — 셔틀 이동 작업(TASK) 이력 · 사용자 조회용
 --    wcs_shuttle_msg_log 가 전문(payload) 원본 이력이라면, 이 테이블은 "작업" 단위 요약 이력.
---    wcs_task_id = {eqp_pallet_id}-{cycle_no} 인데 cycle_no 는 매핑(PRE03) 시에만 증가하므로
---    같은 사이클의 입고 TASK 와 출고 TASK 가 동일한 wcs_task_id 를 공유한다 → task_type 으로 구분.
+--    wcs_task_id = 'TSK-' + wcs_task_seq (작업 전용 채번) → 입고/출고 TASK 가 각각 고유 ID를 갖는다.
+--    팔렛/사이클 역추적은 이 테이블의 eqp_pallet_id · cycle_no · pallet_id 컬럼으로 조인 없이 가능.
+CREATE SEQUENCE IF NOT EXISTS biz.wcs_task_seq START WITH 1 INCREMENT BY 1;
+
+COMMENT ON SEQUENCE biz.wcs_task_seq IS '셔틀 작업(TASK) 채번 — wcs_task_id = TSK-{8자리 0패딩}';
+
 CREATE TABLE IF NOT EXISTS biz.wcs_task_h (
     task_seq        BIGSERIAL    NOT NULL,
     wcs_task_id     VARCHAR(60)  NOT NULL,
@@ -378,7 +382,7 @@ CREATE TABLE IF NOT EXISTS biz.wcs_task_h (
     created_by      VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
     updated_by      VARCHAR(30)  NOT NULL DEFAULT 'SYSTEM',
     CONSTRAINT pk_wcs_task_h PRIMARY KEY (task_seq),
-    CONSTRAINT uk_wcs_task_h__task UNIQUE (wcs_task_id, task_type)
+    CONSTRAINT uk_wcs_task_h__task UNIQUE (wcs_task_id)
 );
 
 CREATE INDEX IF NOT EXISTS ix_wcs_task_h__eqp
@@ -391,7 +395,7 @@ CREATE INDEX IF NOT EXISTS ix_wcs_task_h__pallet
     ON biz.wcs_task_h (pallet_id);
 
 COMMENT ON TABLE  biz.wcs_task_h IS '셔틀 이동 작업(TASK) 이력 — INBOUND_TASK/OUTBOUND_TASK 발행부터 START·DONE 까지의 작업 단위 요약 (사용자 조회용)';
-COMMENT ON COLUMN biz.wcs_task_h.wcs_task_id     IS 'WCS 발급 작업 식별자 (eqp_pallet_id-cycle_no). 입고/출고가 같은 값을 공유하므로 task_type 과 함께 사용';
+COMMENT ON COLUMN biz.wcs_task_h.wcs_task_id     IS 'WCS 발급 작업 식별자 — TSK-{wcs_task_seq 8자리}. 작업 단위 전역 고유(입고/출고 각각 별도 채번)';
 COMMENT ON COLUMN biz.wcs_task_h.task_type       IS 'INBOUND(입고 TASK) · OUTBOUND(출고 TASK)';
 COMMENT ON COLUMN biz.wcs_task_h.task_status     IS 'DISPATCHED(TASK 발행·ACK 수락) → STARTED(설비 착수) → COMPLETED(완료) / FAILED(실패 보고)';
 COMMENT ON COLUMN biz.wcs_task_h.order_task_id   IS 'WMS 지시 task_id (wcs_inbound_order_h / wcs_outbound_order_h 역추적)';

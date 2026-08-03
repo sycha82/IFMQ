@@ -24,10 +24,12 @@ status(RECEIVED→PROCESSING→COMPLETED / FAILED). 멱등키 `(direction, messa
 ### `wcs_task_h` (작업 이력)
 `wcs_shuttle_msg_log`가 전문 payload 원본이라면, 이 테이블은 **작업 단위 요약**이다
 (사용자가 JSON을 뒤지지 않고 작업 진행 상태를 확인하는 용도).
-- `wcs_task_id`(=`{eqpPalletId}-{cycleNo}`)는 **입고 TASK와 출고 TASK가 공유**한다
-  (cycle_no는 매핑 PRE03 시점에만 증가). 따라서 유니크키는 `(wcs_task_id, task_type)`.
+- `wcs_task_id` = `TSK-{8자리}` — 시퀀스 `biz.wcs_task_seq` 로 **TASK 발행 시마다 채번**(유니크키도 이 컬럼 단독).
+  입고 TASK와 출고 TASK가 같은 팔렛·같은 사이클이어도 서로 다른 ID를 갖는다.
+- 팔렛/사이클 역추적은 조인 없이 이 테이블의 `eqp_pallet_id` · `cycle_no` · `pallet_id` · `order_task_id` 로 가능.
 - `task_status` : `DISPATCHED`(TASK 발행·ACK 수락) → `STARTED`(설비 착수) → `COMPLETED` / `FAILED`
-- 적재 시점 : TASK 발행 시 upsert(재발행이면 행 재무장) / START·DONE 시 update
+- 적재 시점 : TASK 발행 시 insert(채번된 신규 행) / START·DONE 시 update
+- RCS가 보고한 wcsTaskId 검증은 팔렛 상태 유도가 아니라 이 테이블 조회(`requireTask`)로 수행
 - 조회 API : `GET /api/tasks` (taskType·taskStatus·eqpPalletId·limit 필터) · `GET /api/tasks/{wcsTaskId}`
 
 ## 상태 모델

@@ -39,7 +39,7 @@ curl -X POST http://localhost:9003/test/outbound-done
 # 작업(TASK) 이력 조회 — 전문 payload 없이 작업 진행 상태 확인
 curl "http://localhost:9002/api/tasks?limit=20"
 curl "http://localhost:9002/api/tasks?taskType=OUTBOUND&taskStatus=STARTED"
-curl "http://localhost:9002/api/tasks/EP0001-1"   # 입고·출고 각 1건(같은 wcsTaskId 공유)
+curl "http://localhost:9002/api/tasks/TSK-00000001"   # 단건(작업 ID는 발행 시 채번)
 
 docker compose logs -f wcs-app          # 개별 서비스 로그
 docker compose down                     # 종료 (RabbitMQ 볼륨 유지)

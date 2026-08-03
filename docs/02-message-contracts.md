@@ -19,7 +19,7 @@
 |-----|------|------------------------------|------|
 | STATION_STATUS | RCS→WCS | POST /rcs/station-status | 입고/출고 공용, stationType으로 구분, upsert |
 | BCR_READ | RCS→WCS | POST /rcs/bcr-read | 입고: 스캔 → 스테이션 점유(BUSY) + INBOUND_TASK 자동 발행 |
-| INBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/inbound-task | wcsTaskId = eqpPalletId-cycleNo |
+| INBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/inbound-task | wcsTaskId = WCS 채번 `TSK-{8자리}` |
 | INBOUND_START | RCS→WCS | POST /rcs/inbound-start | 설비 입고 착수(팔렛 스테이션 이탈) → 스테이션 해제(AVAILABLE) |
 | INBOUND_DONE / ACK | RCS→WCS | POST /rcs/inbound-done | 완료 → 재고 적재 + INBOUND_COMPLETE 자동 통보 |
 | OUTBOUND_TASK / ACK | WCS→RCS | POST {rcs}/rcs/outbound-task | eqpPalletId + destStation |
@@ -27,4 +27,6 @@
 | OUTBOUND_DONE / ACK | RCS→WCS | POST /rcs/outbound-done | 배출 완료 → PICKING_ZONE + 재고 소멸 |
 
 - 모든 DTO는 `common` 모듈에만 정의(타 모듈 복제 금지).
-- `wcsTaskId` 포맷 = `{eqpPalletId}-{cycleNo}`.
+- `wcsTaskId` 포맷 = `TSK-{8자리}` — 시퀀스 `biz.wcs_task_seq` 로 **TASK 발행 시마다 채번**한다.
+  입고 TASK와 출고 TASK는 같은 팔렛·같은 사이클이어도 서로 다른 ID를 갖는다.
+  RCS는 WCS가 발급한 값을 그대로 되돌려주며(START/DONE), WCS는 `wcs_task_h` 조회로 검증한다.

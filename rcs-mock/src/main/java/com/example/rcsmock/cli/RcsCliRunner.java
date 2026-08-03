@@ -69,7 +69,7 @@ public class RcsCliRunner implements CommandLineRunner {
               "timestamp": "2026-04-22T09:25:00",
               "stationId": "STATION-IN-01",
               "eqpPalletId": "EP0001",
-              "wcsTaskId": "EP0001-1",
+              "wcsTaskId": "TSK-00000001",
               "shuttleId": "SHUTTLE-01"
             }""";
 
@@ -80,7 +80,7 @@ public class RcsCliRunner implements CommandLineRunner {
               "refMessageId": null,
               "sequenceNo": 1,
               "timestamp": "2026-04-22T09:30:00",
-              "wcsTaskId": "EP0001-1",
+              "wcsTaskId": "TSK-00000001",
               "eqpPalletId": "EP0001",
               "shuttleId": "SHUTTLE-01",
               "status": "COMPLETED",
@@ -94,7 +94,7 @@ public class RcsCliRunner implements CommandLineRunner {
               "refMessageId": null,
               "sequenceNo": 1,
               "timestamp": "2026-04-22T10:05:00",
-              "wcsTaskId": "EQPPLT-OUT-01-1",
+              "wcsTaskId": "TSK-00000002",
               "eqpPalletId": "EQPPLT-OUT-01",
               "shuttleId": "SHUTTLE-01",
               "destStation": "STATION-OUT-01"
@@ -107,7 +107,7 @@ public class RcsCliRunner implements CommandLineRunner {
               "refMessageId": null,
               "sequenceNo": 1,
               "timestamp": "2026-04-22T10:08:15",
-              "wcsTaskId": "EQPPLT-OUT-01-1",
+              "wcsTaskId": "TSK-00000002",
               "eqpPalletId": "EQPPLT-OUT-01",
               "shuttleId": "SHUTTLE-01",
               "destStation": "STATION-OUT-01",

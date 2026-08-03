@@ -83,7 +83,7 @@
 - ACK → OUTBOUND_TASK 진행. NACK → 대체 팔렛 재선정 후 재요청. 반복 후에도 없으면 CMD_ACK REJECTED.
 
 ### 03 · OUTBOUND_TASK (WCS→RCS)
-`wcsTaskId`(=eqpPalletId-cycleNo), `taskType`(OUTBOUND), `eqpPalletId`, `destStation`
+`wcsTaskId`(=WCS 채번 `TSK-{8자리}`), `taskType`(OUTBOUND), `eqpPalletId`, `destStation`
 
 ### 04 · OUTBOUND_TASK_ACK (RCS→WCS)
 `wcsTaskId`, `shuttleId`, `result`, `message`

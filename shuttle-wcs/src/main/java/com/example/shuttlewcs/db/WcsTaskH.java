@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public class WcsTaskH {
 
     private Long taskSeq;
-    private String wcsTaskId;          // {eqpPalletId}-{cycleNo}
+    private String wcsTaskId;          // TSK-{8자리} — biz.wcs_task_seq 채번 (작업 단위 전역 고유)
     private String taskType;           // INBOUND | OUTBOUND
     private String taskStatus;         // DISPATCHED | STARTED | COMPLETED | FAILED
     private String eqpPalletId;

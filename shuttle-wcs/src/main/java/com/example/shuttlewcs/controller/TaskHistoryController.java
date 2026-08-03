@@ -37,9 +37,10 @@ public class TaskHistoryController {
         return ResponseEntity.ok(taskHistoryService.findRecent(taskType, taskStatus, eqpPalletId, capped));
     }
 
-    // 특정 wcsTaskId 조회 — 입고/출고가 같은 값을 공유하므로 최대 2건(INBOUND·OUTBOUND) 반환
+    // 특정 wcsTaskId 조회 — 작업 단위 전역 고유이므로 단건 (없으면 404)
     @GetMapping("/{wcsTaskId}")
-    public ResponseEntity<List<WcsTaskH>> findByWcsTaskId(@PathVariable String wcsTaskId) {
-        return ResponseEntity.ok(taskHistoryService.findByWcsTaskId(wcsTaskId));
+    public ResponseEntity<WcsTaskH> findOneByWcsTaskId(@PathVariable String wcsTaskId) {
+        WcsTaskH task = taskHistoryService.findOneByWcsTaskId(wcsTaskId);
+        return task != null ? ResponseEntity.ok(task) : ResponseEntity.notFound().build();
     }
 }
