@@ -17,6 +17,9 @@ rcs:
     enabled: ${AUTO_SIM_ENABLED:true}
     start-delay-ms: ${AUTO_SIM_START_DELAY_MS:5000}   # TASK 수신 → START
     done-delay-ms: ${AUTO_SIM_DONE_DELAY_MS:10000}    # START → DONE
+    # 같은 스테이션 작업 직렬화 — 앞 팔렛 DONE 후 다음 팔렛 START 까지의 간격.
+    # 한 스테이션에 여러 팔렛이 동시 도착할 수 없으므로 팔렛별로 순차 진행시킨다.
+    gap-ms: ${AUTO_SIM_GAP_MS:2000}
     default-shuttle-id: SHUTTLE-SIM
 
 logging:

@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 설비 동작 자동 시뮬레이터.
@@ -35,9 +37,18 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class EquipmentSimulator {
 
+    private static final String NO_STATION = "(none)";
+
     private final ShuttleWcsRcsClient shuttleWcsRcsClient;
     private final TaskScheduler taskScheduler;
     private final AutoSimulationProperties props;
+
+    /**
+     * 스테이션별 "다음 팔렛이 착수 가능한 가장 이른 시각" 커서.
+     * 한 스테이션은 동시에 여러 팔렛을 처리할 수 없으므로 작업을 직렬화한다.
+     * 입고 스테이션과 출고 스테이션은 키가 달라 서로 간섭하지 않는다.
+     */
+    private final Map<String, Instant> stationCursor = new ConcurrentHashMap<>();
 
     // 입고: TASK 수신 → (startDelay) INBOUND_START → (doneDelay) INBOUND_DONE
     public void scheduleInbound(InboundTaskDto task, String shuttleId) {
@@ -45,12 +56,11 @@ public class EquipmentSimulator {
             return;
         }
         String sid = (shuttleId != null) ? shuttleId : props.getDefaultShuttleId();
-        Instant startAt = Instant.now().plusMillis(props.getStartDelayMs());
+        Instant startAt = reserveSlot(task.getStationId());
         Instant doneAt = startAt.plusMillis(props.getDoneDelayMs());
 
-        log.info("[SIM] 입고 자동 시뮬레이션 예약 | wcsTaskId={} START(+{}ms) DONE(+{}ms)",
-                task.getWcsTaskId(), props.getStartDelayMs(),
-                props.getStartDelayMs() + props.getDoneDelayMs());
+        log.info("[SIM] 입고 자동 시뮬레이션 예약 | wcsTaskId={} station={} START={} DONE={}",
+                task.getWcsTaskId(), task.getStationId(), startAt, doneAt);
 
         taskScheduler.schedule(() -> sendInboundStart(task, sid), startAt);
         taskScheduler.schedule(() -> sendInboundDone(task, sid), doneAt);
@@ -62,15 +72,38 @@ public class EquipmentSimulator {
             return;
         }
         String sid = (shuttleId != null) ? shuttleId : props.getDefaultShuttleId();
-        Instant startAt = Instant.now().plusMillis(props.getStartDelayMs());
+        Instant startAt = reserveSlot(task.getDestStation());
         Instant doneAt = startAt.plusMillis(props.getDoneDelayMs());
 
-        log.info("[SIM] 출고 자동 시뮬레이션 예약 | wcsTaskId={} START(+{}ms) DONE(+{}ms)",
-                task.getWcsTaskId(), props.getStartDelayMs(),
-                props.getStartDelayMs() + props.getDoneDelayMs());
+        log.info("[SIM] 출고 자동 시뮬레이션 예약 | wcsTaskId={} destStation={} START={} DONE={}",
+                task.getWcsTaskId(), task.getDestStation(), startAt, doneAt);
 
         taskScheduler.schedule(() -> sendOutboundStart(task, sid), startAt);
         taskScheduler.schedule(() -> sendOutboundDone(task, sid), doneAt);
+    }
+
+    /**
+     * 해당 스테이션의 다음 작업 슬롯을 예약하고 착수(START) 시각을 돌려준다.
+     *
+     * <p>착수 시각 = max(지금 + startDelay, 앞 팔렛 완료 + gap).
+     * 즉 앞 팔렛이 배출/적재를 마치기 전에는 다음 팔렛이 출발하지 않는다.
+     * user-outbound-request 는 여러 TASK 를 for-loop 로 연달아 발행하므로, 이 직렬화가 없으면
+     * 모든 팔렛의 START/DONE 이 거의 동시에 발생해 같은 스테이션에 동시 도착하는
+     * 물리적으로 불가능한 상황이 된다.
+     */
+    private Instant reserveSlot(String stationId) {
+        String key = (stationId != null) ? stationId : NO_STATION;
+        Instant earliest = Instant.now().plusMillis(props.getStartDelayMs());
+        long occupyMs = props.getDoneDelayMs() + props.getGapMs();
+
+        // compute() 로 원자적으로 슬롯을 잡는다 (TASK 가 동시에 들어와도 겹치지 않도록)
+        Instant[] holder = new Instant[1];
+        stationCursor.compute(key, (k, cursor) -> {
+            Instant startAt = (cursor == null || cursor.isBefore(earliest)) ? earliest : cursor;
+            holder[0] = startAt;
+            return startAt.plusMillis(occupyMs);
+        });
+        return holder[0];
     }
 
     private void sendInboundStart(InboundTaskDto task, String shuttleId) {

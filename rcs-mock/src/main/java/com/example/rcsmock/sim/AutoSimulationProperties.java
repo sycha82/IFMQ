@@ -21,6 +21,12 @@ public class AutoSimulationProperties {
     /** START → DONE 전송까지 지연(ms). 설비가 이동·적재/배출을 마치기까지 걸리는 시간. */
     private long doneDelayMs = 10000;
 
+    /**
+     * 같은 스테이션에서 앞 팔렛이 완료(DONE)된 뒤 다음 팔렛이 착수(START)하기까지의 간격(ms).
+     * 한 스테이션에 여러 팔렛이 동시에 도착할 수 없으므로 작업을 직렬화하는 데 쓰인다.
+     */
+    private long gapMs = 2000;
+
     /** 시뮬레이션에 사용할 셔틀 ID (TASK_ACK 에서 배정한 값이 없을 때의 대체값). */
     private String defaultShuttleId = "SHUTTLE-SIM";
 }

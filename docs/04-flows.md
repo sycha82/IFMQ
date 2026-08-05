@@ -40,6 +40,16 @@ WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(
 INBOUND_TASK  수신 → (5초) INBOUND_START  → (10초) INBOUND_DONE
 OUTBOUND_TASK 수신 → (5초) OUTBOUND_START → (10초) OUTBOUND_DONE
 ```
+- **스테이션 단위 직렬 처리** : 한 스테이션은 동시에 여러 팔렛을 처리할 수 없으므로
+  `앞 팔렛 DONE + gap(2초)` 이후에 다음 팔렛이 START 한다(`reserveSlot` 커서).
+  `user-outbound-request` 는 TASK 를 for-loop 로 연달아 발행하므로 이 직렬화가 없으면
+  전 팔렛의 START/DONE 이 거의 동시에 발생해 **같은 출고 스테이션에 동시 도착**하는
+  물리적으로 불가능한 상황이 된다. 입고/출고 스테이션은 키가 달라 서로 간섭하지 않는다.
+  ```
+  3팔렛 출고 예: TSK-1 START 00:00 DONE 00:10
+                TSK-2 START 00:12 DONE 00:22
+                TSK-3 START 00:24 DONE 00:34
+  ```
 - **트리거가 TASK 수신인 이유** : START/DONE 에 필수인 `wcsTaskId` 는 WCS 가 채번해 TASK 전문으로
   내려주는 값이라, BCR_READ 시점에는 알 수 없다.
 - **ACK 를 블로킹하면 안 된다** : WCS 의 BCR_READ 트랜잭션 안에서 TASK 전송이 일어나므로,
