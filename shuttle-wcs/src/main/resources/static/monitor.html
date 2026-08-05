@@ -53,6 +53,16 @@
   .muted{color:var(--muted)}
   .num{text-align:right;font-variant-numeric:tabular-nums}
   .reason{max-width:280px;overflow:hidden;text-overflow:ellipsis;color:var(--bad)}
+  /* 전문 이력 */
+  .msg tbody tr{cursor:pointer}
+  .msg .mid{max-width:230px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+  .caret{display:inline-block;width:10px;color:var(--muted)}
+  tr.open .caret{transform:rotate(90deg)}
+  .payload{background:rgba(127,127,127,.06)}
+  .payload td{padding:0}
+  .payload pre{margin:0;padding:10px 14px 12px 34px;white-space:pre;overflow-x:auto;
+               font-size:12px;line-height:1.45;color:var(--fg);max-height:300px;overflow-y:auto}
+  .hint{font-weight:400;text-transform:none;letter-spacing:0}
 </style>
 </head>
 <body>
@@ -115,6 +125,28 @@
       <tbody id="t-order"></tbody>
     </table></div>
   </section>
+
+  <section class="card wide">
+    <h2>WMS ↔ WCS 전문 (MQ · inf.if_msg_log)
+        <span class="hint muted">행을 클릭하면 payload 표시</span></h2>
+    <div class="scroll"><table class="msg">
+      <thead><tr>
+        <th>시각</th><th>방향</th><th>메시지</th><th>상태</th>
+        <th>라우팅키 / 큐</th><th>messageId</th><th>오류</th>
+      </tr></thead><tbody id="t-wmsmsg"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card wide">
+    <h2>WCS ↔ RCS 전문 (REST · biz.wcs_shuttle_msg_log)
+        <span class="hint muted">행을 클릭하면 payload 표시</span></h2>
+    <div class="scroll"><table class="msg">
+      <thead><tr>
+        <th>시각</th><th>방향</th><th>API</th><th>결과</th>
+        <th>작업 ID</th><th>설비파레트</th><th>스테이션</th><th>messageId</th>
+      </tr></thead><tbody id="t-rcsmsg"></tbody>
+    </table></div>
+  </section>
 </div>
 
 <script>
@@ -137,7 +169,30 @@ const STATION_TAG = { AVAILABLE:'t-ok', BUSY:'t-busy', DOWN:'t-bad' };
 const MAP_TAG = { EMPTY:'t-idle', MAPPED:'t-wait', IN_PROGRESS:'t-run',
                   STORED:'t-ok', OUTBOUND:'t-busy' };
 const ORDER_TAG = { RECEIVED:'t-wait', DISPATCHED:'t-run', COMPLETED:'t-ok' };
+const MSG_TAG = { RECEIVED:'t-wait', PROCESSING:'t-run', COMPLETED:'t-ok', FAILED:'t-bad',
+                  ACCEPTED:'t-ok', OK:'t-ok', REJECTED:'t-bad' };
 const tag = (v, map) => v ? `<span class="tag ${map[v]||'t-idle'}">${esc(v)}</span>` : '<span class="muted">—</span>';
+
+// 펼친 payload 행 — 자동 새로고침으로 접히지 않도록 상태를 보존한다
+const opened = new Set();
+
+function payloadRow(key, cols, payload){
+  if(!opened.has(key)) return '';
+  let body = payload;
+  try { body = JSON.stringify(JSON.parse(payload), null, 2); } catch(_) {}
+  return `<tr class="payload"><td colspan="${cols}"><pre>${esc(body || '(payload 없음)')}</pre></td></tr>`;
+}
+
+// 이벤트 위임 — 갱신으로 행이 새로 그려져도 계속 동작한다
+function bindToggle(tbody, prefix){
+  tbody.addEventListener('click', e => {
+    const tr = e.target.closest('tr[data-key]');
+    if(!tr) return;
+    const key = tr.dataset.key;
+    opened.has(key) ? opened.delete(key) : opened.add(key);
+    refresh();
+  });
+}
 
 function fill(tbody, rows, cols, html){
   if(!rows || !rows.length){
@@ -195,6 +250,35 @@ async function refresh(){
       <td>${hms(o.receivedAt)}</td><td>${hms(o.completedAt)}</td>
     </tr>`);
 
+    // WMS ↔ WCS (MQ)
+    fill($('t-wmsmsg'), d.wmsMessages, 7, m => {
+      const key = 'wms:' + m.logId;
+      const inbound = m.direction === 'INBOUND';
+      return `<tr data-key="${key}" class="${opened.has(key)?'open':''}">
+        <td><span class="caret">▶</span> ${hms(m.createdAt)}</td>
+        <td class="${inbound?'dir-in':'dir-out'}">${inbound?'WMS → WCS':'WCS → WMS'}</td>
+        <td>${esc(m.messageType)}</td>
+        <td>${tag(m.status, MSG_TAG)}</td>
+        <td class="muted">${dash(m.routingKey || m.queueName)}</td>
+        <td class="mid">${dash(m.messageId)}</td>
+        <td class="reason">${m.errorMsg?esc(m.errorMsg):'<span class="muted">—</span>'}</td>
+      </tr>` + payloadRow(key, 7, m.payload);
+    });
+
+    // WCS ↔ RCS (REST)
+    fill($('t-rcsmsg'), d.rcsMessages, 8, m => {
+      const key = 'rcs:' + m.logId;
+      const send = m.direction === 'SEND';
+      return `<tr data-key="${key}" class="${opened.has(key)?'open':''}">
+        <td><span class="caret">▶</span> ${hms(m.createdAt)}</td>
+        <td class="${send?'dir-out':'dir-in'}">${send?'WCS → RCS':'RCS → WCS'}</td>
+        <td>${esc(m.apiName)}</td>
+        <td>${tag(m.result, MSG_TAG)}</td>
+        <td>${dash(m.wcsTaskId)}</td><td>${dash(m.eqpPalletId)}</td><td>${dash(m.stationId)}</td>
+        <td class="mid">${dash(m.messageId)}</td>
+      </tr>` + payloadRow(key, 8, m.payload);
+    });
+
     $('dot').className = '';
     $('stamp').textContent = '갱신 ' + new Date().toLocaleTimeString('ko-KR');
   }catch(e){
@@ -211,6 +295,8 @@ function schedule(){
 }
 $('interval').addEventListener('change', schedule);
 $('now').addEventListener('click', refresh);
+bindToggle($('t-wmsmsg'));
+bindToggle($('t-rcsmsg'));
 refresh(); schedule();
 </script>
 </body>

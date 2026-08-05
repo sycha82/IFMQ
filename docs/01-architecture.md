@@ -49,6 +49,8 @@ ifmq/                        ← parent pom
 │   │             TaskHistoryService(wcs_task_h — TASK 발행~START~DONE 작업 이력)
 │   │             MonitorService(모니터링 스냅샷 — 작업·스테이션·팔렛·재고·지시 통합 조회)
 │   ├── static/   monitor.html — 모니터링 대시보드 (빌드 도구 없는 순수 HTML/JS, 자동 새로고침)
+│   │             하단 전문 이력 2종 + payload 펼치기
+│   ├── db/       IfMsgLogView(+Mapper) — inf.if_msg_log **조회 전용**(적재는 wcs-app 담당)
 │   └── client/   RcsClient(→rcs-mock: inbound-task, outbound-task) · WcsAppClient(→wcs-app: inbound-complete)
 │
 ├── rcs-mock/                ← RCS/설비ECS 시뮬레이터 (port 9003, DB 없음)

@@ -4,6 +4,21 @@
 
 <mapper namespace="com.example.shuttlewcs.db.WcsRcsMsgLogMapper">
 
+    <resultMap id="rs" type="com.example.shuttlewcs.db.WcsRcsMsgLog">
+        <id     property="logId"        column="log_id"/>
+        <result property="direction"    column="direction"/>
+        <result property="apiName"      column="api_name"/>
+        <result property="messageId"    column="message_id"/>
+        <result property="refMessageId" column="ref_message_id"/>
+        <result property="stationId"    column="station_id"/>
+        <result property="eqpPalletId"  column="eqp_pallet_id"/>
+        <result property="wcsTaskId"    column="wcs_task_id"/>
+        <result property="payload"      column="payload"/>
+        <result property="result"       column="result"/>
+        <result property="createdAt"    column="created_at"/>
+        <result property="createdBy"    column="created_by"/>
+    </resultMap>
+
     <select id="countAll" resultType="int">
         SELECT COUNT(1) FROM biz.wcs_shuttle_msg_log
     </select>
@@ -20,5 +35,16 @@
             #{payload}::jsonb, #{result}, COALESCE(#{createdBy}, 'SYSTEM')
         )
     </insert>
+
+
+    <!-- 모니터링 조회 — 최근 RCS 연계 전문 (payload 는 jsonb → ::text) -->
+    <select id="findRecent" resultMap="rs">
+        SELECT log_id, direction, api_name, message_id, ref_message_id,
+               station_id, eqp_pallet_id, wcs_task_id, payload::text AS payload,
+               result, created_at, created_by
+          FROM biz.wcs_shuttle_msg_log
+        ORDER BY log_id DESC
+        LIMIT #{limit}
+    </select>
 
 </mapper>

@@ -2,6 +2,8 @@
 
 1. **DTO는 `common`에만 정의.** 타 모듈에서 복제 금지.
 2. **if_msg_log는 WCS 입장만 기록.** wms-mock·rcs-mock·테스트용 Producer는 DB 로그 없음.
+   적재 주체는 **wcs-app 단독**이다. shuttle-wcs 의 `IfMsgLogView(+Mapper)`는 모니터링 화면
+   표시용 **조회 전용**이며(두 모듈이 같은 DB `wcs` 사용), 여기서 INSERT/UPDATE 하지 않는다.
 3. **MQ INBOUND는 멱등 처리.** `(direction, message_id)` 중복이면 `MsgLogService.insertInbound`가 null 반환 → Consumer skip.
 4. **RCS 연계 전문은 `RcsMsgLogService`로 SEND/RECEIVE 적재** (wcs_shuttle_msg_log).
 5. **라우팅 키/Exchange/큐/base-url은 application.yml에서 관리.** 하드코딩 금지.

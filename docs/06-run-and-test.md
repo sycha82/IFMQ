@@ -44,6 +44,8 @@ curl -X POST http://localhost:9003/test/outbound-done
 # 모니터링 대시보드 — 브라우저에서 진행상황 한눈에 (2초 자동 새로고침)
 #   http://localhost:9002/monitor
 #   작업 현황 · 스테이션 · 재고(가용) · 설비파레트 · 입출고 지시
+#   하단에 전문 이력 2종 — WMS↔WCS(MQ, inf.if_msg_log) / WCS↔RCS(REST, biz.wcs_shuttle_msg_log)
+#   전문 행을 클릭하면 payload JSON 이 펼쳐진다(자동 새로고침돼도 펼친 상태 유지)
 curl -s "http://localhost:9002/api/monitor/snapshot" | head -c 300   # 화면이 쓰는 통합 API
 
 # 작업(TASK) 이력 조회 — 전문 payload 없이 작업 진행 상태 확인

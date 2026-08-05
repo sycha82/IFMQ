@@ -20,10 +20,12 @@ public class MonitorController {
     @GetMapping("/snapshot")
     public ResponseEntity<MonitorService.Snapshot> snapshot(
             @RequestParam(name = "taskLimit", defaultValue = "30") int taskLimit,
-            @RequestParam(name = "orderLimit", defaultValue = "10") int orderLimit) {
+            @RequestParam(name = "orderLimit", defaultValue = "10") int orderLimit,
+            @RequestParam(name = "msgLimit", defaultValue = "40") int msgLimit) {
 
         int tl = Math.min(Math.max(taskLimit, 1), 200);
         int ol = Math.min(Math.max(orderLimit, 1), 100);
-        return ResponseEntity.ok(monitorService.snapshot(tl, ol));
+        int ml = Math.min(Math.max(msgLimit, 1), 200);
+        return ResponseEntity.ok(monitorService.snapshot(tl, ol, ml));
     }
 }
