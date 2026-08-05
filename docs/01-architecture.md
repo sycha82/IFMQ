@@ -54,6 +54,8 @@ ifmq/                        ← parent pom
 ├── rcs-mock/                ← RCS/설비ECS 시뮬레이터 (port 9003, DB 없음)
 │   ├── cli/  RcsCliRunner — 1. STATION_STATUS(입고) / 2. BCR_READ / 3. INBOUND_DONE
 │   │                        4. STATION_STATUS(출고) / 5. OUTBOUND_DONE / 6. INBOUND_START / 7. OUTBOUND_START
+│   ├── sim/  EquipmentSimulator — TASK 수신 시 START/DONE 자동 예약 (설비 동작 시뮬레이션)
+│   │         AutoSimulationProperties(rcs.auto-simulation.*) · SchedulerConfig(TaskScheduler)
 │   ├── controller/ RcsTaskController — POST /rcs/inbound-task · /rcs/outbound-task (ACK 동기 회신)
 │   └── controller/ TestController — POST /test/* (CLI 메뉴 1:1 대응 REST, 도커용)
 │

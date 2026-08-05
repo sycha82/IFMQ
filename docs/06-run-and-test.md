@@ -25,16 +25,21 @@ base-url은 각 application.yml에서 환경변수로 override (`SHUTTLE_WCS_BAS
 docker compose up -d --build            # rabbitmq + wcs-app + shuttle-wcs + rcs-mock + wms-mock
 
 # 입고~출고 전체 시나리오 (기본값 사용, body 생략 가능)
+# 자동 시뮬레이션이 켜져 있으면(기본) START/DONE 은 rcs-mock 이 알아서 보고한다 → 아래 4줄 불필요
 curl -X POST http://localhost:9004/test/inbound-cmd
 curl -X POST http://localhost:9003/test/station-status-in
-curl -X POST http://localhost:9003/test/bcr-read
-curl -X POST http://localhost:9003/test/inbound-start    # 착수 → 스테이션 해제
-curl -X POST http://localhost:9003/test/inbound-done
+#   [PRE03] 매핑 등록 — POST :9002/api/mapping {"eqpPalletId":"...","palletId":"..."}
+curl -X POST http://localhost:9003/test/bcr-read          # → 5초 후 START, 15초 후 DONE 자동
 curl -X POST http://localhost:9004/test/outbound-cmd
 curl -X POST http://localhost:9003/test/station-status-out
-curl -X POST http://localhost:9001/test/user-outbound-request  # 작업자 트리거 → OUTBOUND_TASK 발행
-curl -X POST http://localhost:9003/test/outbound-start    # 설비 착수 → OUTBOUNDING 전이 (RCS)
+curl -X POST http://localhost:9001/test/user-outbound-request  # → 5초 후 START, 15초 후 DONE 자동
+
+# 자동 시뮬레이션을 끄고 수동으로 돌리려면 (AUTO_SIM_ENABLED=false 로 기동)
+curl -X POST http://localhost:9003/test/inbound-start     # 착수 → 스테이션 해제
+curl -X POST http://localhost:9003/test/inbound-done
+curl -X POST http://localhost:9003/test/outbound-start    # 설비 착수 → OUTBOUNDING 전이
 curl -X POST http://localhost:9003/test/outbound-done
+#   수동 전송 시 wcsTaskId 는 실제 발급값으로 교체해야 한다(:9002/api/tasks 또는 대시보드에서 확인)
 
 # 모니터링 대시보드 — 브라우저에서 진행상황 한눈에 (2초 자동 새로고침)
 #   http://localhost:9002/monitor

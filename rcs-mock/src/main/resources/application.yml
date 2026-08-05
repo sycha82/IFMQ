@@ -10,6 +10,15 @@ rcs:
   shuttle:
     base-url: ${SHUTTLE_WCS_BASE_URL:http://localhost:9002}
 
+  # 설비 동작 자동 시뮬레이션 — TASK 수신 후 START/DONE 을 자동 보고한다.
+  # 트리거는 TASK 수신 시점(BCR_READ 아님) — wcsTaskId 를 그때 처음 알 수 있기 때문.
+  # 지연시간은 WCS 의 TASK 발행 트랜잭션이 커밋될 여유도 포함해야 한다(너무 짧으면 미등록 작업으로 거부됨).
+  auto-simulation:
+    enabled: ${AUTO_SIM_ENABLED:true}
+    start-delay-ms: ${AUTO_SIM_START_DELAY_MS:5000}   # TASK 수신 → START
+    done-delay-ms: ${AUTO_SIM_DONE_DELAY_MS:10000}    # START → DONE
+    default-shuttle-id: SHUTTLE-SIM
+
 logging:
   level:
     com.example.rcsmock: INFO

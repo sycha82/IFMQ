@@ -33,6 +33,21 @@ WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(
 - OUTBOUNDING 전이는 **OUTBOUND_START(착수) 시점**(입고 INBOUND_START 대칭). OUTBOUND_TASK는 IN_PROGRESS만.
   OUTBOUND_START를 건너뛰면 location=IN_RACK로 남아 OUTBOUND_DONE 검증(OUTBOUNDING 요구)에서 거부됨.
 
+## 설비 자동 시뮬레이션 (rcs-mock)
+`rcs.auto-simulation.enabled=true`(기본) 이면 rcs-mock 이 **TASK 수신 시점**에 START/DONE 을
+자동 예약해 보고한다. BCR_READ(입고) 또는 user-outbound-request(출고) 한 번이면 사이클이 완주한다.
+```
+INBOUND_TASK  수신 → (5초) INBOUND_START  → (10초) INBOUND_DONE
+OUTBOUND_TASK 수신 → (5초) OUTBOUND_START → (10초) OUTBOUND_DONE
+```
+- **트리거가 TASK 수신인 이유** : START/DONE 에 필수인 `wcsTaskId` 는 WCS 가 채번해 TASK 전문으로
+  내려주는 값이라, BCR_READ 시점에는 알 수 없다.
+- **ACK 를 블로킹하면 안 된다** : WCS 의 BCR_READ 트랜잭션 안에서 TASK 전송이 일어나므로,
+  예약만 걸고 즉시 ACK 를 반환한다. 지연시간도 WCS 트랜잭션 커밋 여유를 포함해야 한다
+  (커밋 전 START 도착 시 작업 이력 조회 실패로 거부됨).
+- 수동 시나리오 테스트가 필요하면 `AUTO_SIM_ENABLED=false` 로 끄고 기존 CLI/`/test/*` 사용.
+- 시뮬레이션 전송 실패는 무시(경고 로그만) — 이미 수동 진행된 작업이면 WCS 가 상태 검증으로 거부하는 게 정상.
+
 ## 재고 예약 모델 (설계 결정)
 - 팔렛트 단위 전량 출고 운영(부분 피킹은 외부 피킹존에서 후처리 → 잔량 재입고)이므로
   **예약은 팔렛 전체**(reserved_qty=quantity). pickQty 부분 예약 금지.
