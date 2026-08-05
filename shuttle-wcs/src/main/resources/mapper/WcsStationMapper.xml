@@ -68,4 +68,11 @@
         WHERE cur_eqp_pallet_id = #{eqpPalletId}
     </update>
 
+
+    <!-- 모니터링 조회 — 전체 스테이션 -->
+    <select id="findAll" resultMap="rs">
+        SELECT * FROM biz.wcs_station
+        ORDER BY station_type, station_id
+    </select>
+
 </mapper>

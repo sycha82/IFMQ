@@ -55,4 +55,22 @@
         WHERE location_id = #{locationId}
     </delete>
 
+
+    <!-- 모니터링 조회 — 가용재고 뷰 -->
+    <resultMap id="rsAvail" type="com.example.shuttlewcs.db.WcsAvailableInventory">
+        <result property="sku"          column="sku"/>
+        <result property="locationId"   column="location_id"/>
+        <result property="quantity"     column="quantity"/>
+        <result property="reservedQty"  column="reserved_qty"/>
+        <result property="availableQty" column="available_qty"/>
+        <result property="uom"          column="uom"/>
+        <result property="updatedAt"    column="updated_at"/>
+    </resultMap>
+
+    <select id="findAllAvailable" resultMap="rsAvail">
+        SELECT sku, location_id, quantity, reserved_qty, available_qty, uom, updated_at
+          FROM biz.wcs_vw_available_inventory
+        ORDER BY sku, location_id
+    </select>
+
 </mapper>

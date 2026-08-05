@@ -55,4 +55,12 @@
         WHERE task_id = #{taskId}
     </update>
 
+
+    <!-- 모니터링 조회 — 최근 출고 지시 -->
+    <select id="findRecent" resultMap="rs">
+        SELECT * FROM biz.wcs_outbound_order_h
+        ORDER BY received_at DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

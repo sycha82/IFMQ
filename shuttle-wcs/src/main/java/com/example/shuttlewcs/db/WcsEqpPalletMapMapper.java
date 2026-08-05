@@ -1,6 +1,7 @@
 package com.example.shuttlewcs.db;
 
 import org.apache.ibatis.annotations.Mapper;
+import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
@@ -13,6 +14,9 @@ public interface WcsEqpPalletMapMapper {
     WcsEqpPalletMap findByPalletId(@Param("palletId") String palletId);
 
     int countAll();
+
+    // 모니터링 조회 — 전체 설비파레트 매핑 현황
+    List<WcsEqpPalletMap> findAll();
 
     // 마스터(③) 등록 시 함께 EMPTY/IDLE/cycle_no=0 으로 초기 row 생성
     void insertEmpty(@Param("eqpPalletId") String eqpPalletId);

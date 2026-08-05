@@ -1,6 +1,7 @@
 package com.example.shuttlewcs.db;
 
 import org.apache.ibatis.annotations.Mapper;
+import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
@@ -10,6 +11,9 @@ public interface WcsInventoryMapper {
                           @Param("locationId") String locationId);
 
     int countAll();
+
+    // 모니터링 조회 — 가용재고 뷰(biz.wcs_vw_available_inventory)
+    List<WcsAvailableInventory> findAllAvailable();
 
     // INBOUND_DONE 시 재고 누적 — (sku, location_id) upsert, 수량 가산
     void upsertAdd(@Param("sku") String sku,

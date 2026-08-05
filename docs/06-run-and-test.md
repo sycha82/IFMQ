@@ -36,6 +36,11 @@ curl -X POST http://localhost:9001/test/user-outbound-request  # 작업자 트�
 curl -X POST http://localhost:9003/test/outbound-start    # 설비 착수 → OUTBOUNDING 전이 (RCS)
 curl -X POST http://localhost:9003/test/outbound-done
 
+# 모니터링 대시보드 — 브라우저에서 진행상황 한눈에 (2초 자동 새로고침)
+#   http://localhost:9002/monitor
+#   작업 현황 · 스테이션 · 재고(가용) · 설비파레트 · 입출고 지시
+curl -s "http://localhost:9002/api/monitor/snapshot" | head -c 300   # 화면이 쓰는 통합 API
+
 # 작업(TASK) 이력 조회 — 전문 payload 없이 작업 진행 상태 확인
 curl "http://localhost:9002/api/tasks?limit=20"
 curl "http://localhost:9002/api/tasks?taskType=OUTBOUND&taskStatus=STARTED"

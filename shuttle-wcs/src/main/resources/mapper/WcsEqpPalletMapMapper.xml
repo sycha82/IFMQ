@@ -76,4 +76,11 @@
         WHERE eqp_pallet_id = #{eqpPalletId}
     </update>
 
+
+    <!-- 모니터링 조회 — 전체 설비파레트 매핑 현황 -->
+    <select id="findAll" resultMap="rs">
+        SELECT * FROM biz.wcs_eqp_pallet_map
+        ORDER BY eqp_pallet_id
+    </select>
+
 </mapper>

@@ -15,6 +15,9 @@ public interface WcsOutboundOrderHMapper {
 
     int countAll();
 
+    // 모니터링 조회 — 최근 출고 지시
+    List<WcsOutboundOrderH> findRecent(@Param("limit") int limit);
+
     void insert(WcsOutboundOrderH order);
 
     void updateStatus(@Param("taskId") String taskId,

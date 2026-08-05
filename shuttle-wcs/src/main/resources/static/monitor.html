@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4Way 셔틀 WCS 모니터</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171c23; --line:#252c36; --fg:#e6edf3; --muted:#8b98a8;
+    --accent:#4aa3ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --busy:#a371f7;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f6f9; --panel:#fff; --line:#dde3ea; --fg:#1c2330; --muted:#68717f; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:12px;align-items:center;
+         padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.02em}
+  .spacer{flex:1}
+  .ctl{display:flex;align-items:center;gap:6px;color:var(--muted)}
+  select,button{background:var(--bg);color:var(--fg);border:1px solid var(--line);
+                border-radius:6px;padding:4px 8px;font:inherit;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  #dot{width:8px;height:8px;border-radius:50%;background:var(--ok);transition:opacity .2s}
+  #dot.err{background:var(--bad)}
+  .grid{display:grid;gap:12px;padding:12px 16px;
+        grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .card.wide{grid-column:1/-1}
+  .card h2{margin:0;padding:8px 12px;font-size:12px;font-weight:600;color:var(--muted);
+           border-bottom:1px solid var(--line);text-transform:uppercase;letter-spacing:.06em;
+           display:flex;justify-content:space-between}
+  .scroll{overflow-x:auto;max-height:340px;overflow-y:auto}
+  table{width:100%;border-collapse:collapse;white-space:nowrap}
+  th{position:sticky;top:0;background:var(--panel);text-align:left;font-weight:600;color:var(--muted);
+     padding:6px 12px;border-bottom:1px solid var(--line);font-size:11px}
+  td{padding:5px 12px;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:0}
+  tr:hover td{background:rgba(127,127,127,.07)}
+  .empty{padding:16px 12px;color:var(--muted)}
+  .tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;
+       border:1px solid transparent}
+  .t-ok  {color:var(--ok);   border-color:var(--ok);   background:color-mix(in srgb,var(--ok) 12%,transparent)}
+  .t-run {color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+  .t-wait{color:var(--warn); border-color:var(--warn); background:color-mix(in srgb,var(--warn) 12%,transparent)}
+  .t-bad {color:var(--bad);  border-color:var(--bad);  background:color-mix(in srgb,var(--bad) 12%,transparent)}
+  .t-busy{color:var(--busy); border-color:var(--busy); background:color-mix(in srgb,var(--busy) 12%,transparent)}
+  .t-idle{color:var(--muted);border-color:var(--line)}
+  .dir-in {color:var(--accent);font-weight:600}
+  .dir-out{color:var(--busy); font-weight:600}
+  .muted{color:var(--muted)}
+  .num{text-align:right;font-variant-numeric:tabular-nums}
+  .reason{max-width:280px;overflow:hidden;text-overflow:ellipsis;color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>4Way 셔틀 WCS 모니터</h1>
+  <span id="dot" title="마지막 갱신 상태"></span>
+  <span id="stamp" class="muted">—</span>
+  <span class="spacer"></span>
+  <span class="ctl">갱신
+    <select id="interval">
+      <option value="0">수동</option>
+      <option value="1000">1초</option>
+      <option value="2000" selected>2초</option>
+      <option value="5000">5초</option>
+    </select>
+  </span>
+  <button id="now">지금 갱신</button>
+</header>
+
+<div class="grid">
+  <section class="card wide">
+    <h2>작업 현황 (wcs_task_h) <span id="c-task" class="muted"></span></h2>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th>작업 ID</th><th>구분</th><th>상태</th><th>설비파레트</th><th>팔렛</th>
+        <th>지시</th><th>스테이션</th><th>셔틀</th><th class="num">수량</th>
+        <th>발행</th><th>착수</th><th>완료</th><th>사유</th>
+      </tr></thead><tbody id="t-task"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2>스테이션 (wcs_station)</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>스테이션</th><th>구분</th><th>상태</th><th>현재 설비파레트</th><th>변경시각</th></tr></thead>
+      <tbody id="t-station"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2>재고 (가용재고 뷰)</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>품목</th><th>위치</th><th class="num">보유</th><th class="num">예약</th><th class="num">가용</th></tr></thead>
+      <tbody id="t-inv"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2>설비파레트 (wcs_eqp_pallet_map)</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>설비파레트</th><th>팔렛</th><th>상태</th><th>위치</th><th class="num">사이클</th><th>지시</th></tr></thead>
+      <tbody id="t-pallet"></tbody>
+    </table></div>
+  </section>
+
+  <section class="card">
+    <h2>지시 현황 (입고 / 출고 order_h)</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>구분</th><th>지시 ID</th><th>상태</th><th>수신시각</th><th>완료시각</th></tr></thead>
+      <tbody id="t-order"></tbody>
+    </table></div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dash = v => (v === null || v === undefined || v === '') ? '<span class="muted">—</span>' : esc(v);
+
+// LocalDateTime(배열/문자열) → HH:MM:SS
+function hms(v){
+  if(!v) return '<span class="muted">—</span>';
+  if(Array.isArray(v)){ const[,,,h=0,mi=0,s=0]=v; return pad(h)+':'+pad(mi)+':'+pad(s); }
+  const m = String(v).match(/T(\d{2}:\d{2}:\d{2})/);
+  return m ? m[1] : esc(v);
+}
+const pad = n => String(n).padStart(2,'0');
+
+const TASK_TAG = { DISPATCHING:'t-wait', DISPATCHED:'t-run', STARTED:'t-run',
+                   COMPLETED:'t-ok', REJECTED:'t-bad', FAILED:'t-bad' };
+const STATION_TAG = { AVAILABLE:'t-ok', BUSY:'t-busy', DOWN:'t-bad' };
+const MAP_TAG = { EMPTY:'t-idle', MAPPED:'t-wait', IN_PROGRESS:'t-run',
+                  STORED:'t-ok', OUTBOUND:'t-busy' };
+const ORDER_TAG = { RECEIVED:'t-wait', DISPATCHED:'t-run', COMPLETED:'t-ok' };
+const tag = (v, map) => v ? `<span class="tag ${map[v]||'t-idle'}">${esc(v)}</span>` : '<span class="muted">—</span>';
+
+function fill(tbody, rows, cols, html){
+  if(!rows || !rows.length){
+    tbody.innerHTML = `<tr><td class="empty" colspan="${cols}">데이터 없음</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(html).join('');
+}
+
+async function refresh(){
+  try{
+    const r = await fetch('/api/monitor/snapshot?taskLimit=30&orderLimit=10', {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+
+    fill($('t-task'), d.tasks, 13, t => `<tr>
+      <td>${esc(t.wcsTaskId)}</td>
+      <td class="${t.taskType==='INBOUND'?'dir-in':'dir-out'}">${t.taskType==='INBOUND'?'입고':'출고'}</td>
+      <td>${tag(t.taskStatus, TASK_TAG)}</td>
+      <td>${dash(t.eqpPalletId)}</td><td>${dash(t.palletId)}</td>
+      <td>${dash(t.orderTaskId)}</td><td>${dash(t.stationId)}</td><td>${dash(t.shuttleId)}</td>
+      <td class="num">${dash(t.qty)}</td>
+      <td>${hms(t.dispatchedAt)}</td><td>${hms(t.startedAt)}</td><td>${hms(t.completedAt)}</td>
+      <td class="reason" title="${esc(t.failReason||'')}">${t.failReason?esc(t.failReason):'<span class="muted">—</span>'}</td>
+    </tr>`);
+    $('c-task').textContent = (d.tasks?.length ?? 0) + '건';
+
+    fill($('t-station'), d.stations, 5, s => `<tr>
+      <td>${esc(s.stationId)}</td>
+      <td>${s.stationType==='INBOUND'?'<span class="dir-in">입고</span>':'<span class="dir-out">출고</span>'}</td>
+      <td>${tag(s.status, STATION_TAG)}</td>
+      <td>${dash(s.curEqpPalletId)}</td><td>${hms(s.statusChangedAt)}</td>
+    </tr>`);
+
+    fill($('t-inv'), d.inventory, 5, i => `<tr>
+      <td>${esc(i.sku)}</td><td>${esc(i.locationId)}</td>
+      <td class="num">${i.quantity}</td>
+      <td class="num">${i.reservedQty>0?`<span class="tag t-wait">${i.reservedQty}</span>`:0}</td>
+      <td class="num">${i.availableQty}</td>
+    </tr>`);
+
+    fill($('t-pallet'), d.pallets, 6, p => `<tr>
+      <td>${esc(p.eqpPalletId)}</td><td>${dash(p.palletId)}</td>
+      <td>${tag(p.mapStatus, MAP_TAG)}</td><td>${dash(p.location)}</td>
+      <td class="num">${dash(p.cycleNo)}</td><td>${dash(p.taskId)}</td>
+    </tr>`);
+
+    const orders = [
+      ...(d.inboundOrders ||[]).map(o=>({...o, _d:'입고', _c:'dir-in'})),
+      ...(d.outboundOrders||[]).map(o=>({...o, _d:'출고', _c:'dir-out'})),
+    ];
+    fill($('t-order'), orders, 5, o => `<tr>
+      <td class="${o._c}">${o._d}</td><td>${esc(o.taskId)}</td>
+      <td>${tag(o.cmdStatus, ORDER_TAG)}</td>
+      <td>${hms(o.receivedAt)}</td><td>${hms(o.completedAt)}</td>
+    </tr>`);
+
+    $('dot').className = '';
+    $('stamp').textContent = '갱신 ' + new Date().toLocaleTimeString('ko-KR');
+  }catch(e){
+    $('dot').className = 'err';
+    $('stamp').textContent = '오류: ' + e.message;
+  }
+}
+
+let timer = null;
+function schedule(){
+  if(timer) clearInterval(timer);
+  const ms = +$('interval').value;
+  if(ms > 0) timer = setInterval(refresh, ms);
+}
+$('interval').addEventListener('change', schedule);
+$('now').addEventListener('click', refresh);
+refresh(); schedule();
+</script>
+</body>
+</html>

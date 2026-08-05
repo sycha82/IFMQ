@@ -1,6 +1,7 @@
 package com.example.shuttlewcs.db;
 
 import org.apache.ibatis.annotations.Mapper;
+import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
@@ -14,6 +15,9 @@ public interface WcsStationMapper {
     WcsStation findFirstByType(@Param("stationType") String stationType);
 
     int countAll();
+
+    // 모니터링 조회 — 전체 스테이션
+    List<WcsStation> findAll();
 
     // STATION_STATUS 수신 — 미존재 시 생성, 존재 시 상태 갱신 (upsert)
     void upsertStatus(@Param("stationId") String stationId,
