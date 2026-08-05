@@ -28,10 +28,10 @@ public class TaskHistoryController {
      */
     @GetMapping
     public ResponseEntity<List<WcsTaskH>> findRecent(
-            @RequestParam(required = false) String taskType,
-            @RequestParam(required = false) String taskStatus,
-            @RequestParam(required = false) String eqpPalletId,
-            @RequestParam(defaultValue = "50") int limit) {
+            @RequestParam(name = "taskType", required = false) String taskType,
+            @RequestParam(name = "taskStatus", required = false) String taskStatus,
+            @RequestParam(name = "eqpPalletId", required = false) String eqpPalletId,
+            @RequestParam(name = "limit", defaultValue = "50") int limit) {
 
         int capped = Math.min(Math.max(limit, 1), MAX_LIMIT);
         return ResponseEntity.ok(taskHistoryService.findRecent(taskType, taskStatus, eqpPalletId, capped));
@@ -39,7 +39,7 @@ public class TaskHistoryController {
 
     // 특정 wcsTaskId 조회 — 작업 단위 전역 고유이므로 단건 (없으면 404)
     @GetMapping("/{wcsTaskId}")
-    public ResponseEntity<WcsTaskH> findOneByWcsTaskId(@PathVariable String wcsTaskId) {
+    public ResponseEntity<WcsTaskH> findOneByWcsTaskId(@PathVariable("wcsTaskId") String wcsTaskId) {
         WcsTaskH task = taskHistoryService.findOneByWcsTaskId(wcsTaskId);
         return task != null ? ResponseEntity.ok(task) : ResponseEntity.notFound().build();
     }

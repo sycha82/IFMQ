@@ -36,24 +36,61 @@
         SELECT 'TSK-' || LPAD(nextval('biz.wcs_task_seq')::text, 8, '0')
     </select>
 
-    <!-- TASK 발행 적재. wcs_task_id 는 발행 시점에 채번되므로 항상 신규 행이다. -->
-    <insert id="insertDispatched" parameterType="com.example.shuttlewcs.db.WcsTaskH"
+    <!--
+      TASK 선기록 — 전문 발송 "이전"에 별도 트랜잭션으로 커밋된다.
+      외부(RCS)에 공표할 wcsTaskId 는 공표 전에 내구화되어야 하므로,
+      셔틀/ACK 정보가 없는 상태(DISPATCHING)로 먼저 행을 만든다.
+    -->
+    <insert id="insertPending" parameterType="com.example.shuttlewcs.db.WcsTaskH"
             useGeneratedKeys="true" keyProperty="taskSeq">
         INSERT INTO biz.wcs_task_h (
             wcs_task_id, task_type, task_status,
             eqp_pallet_id, cycle_no, pallet_id, order_task_id,
-            station_id, shuttle_id, sku_code, lot_id, qty,
-            task_message_id, ack_message_id, ack_result,
-            dispatched_at, created_by, updated_by
+            station_id, sku_code, lot_id, qty,
+            task_message_id, dispatched_at, created_by, updated_by
         ) VALUES (
-            #{wcsTaskId}, #{taskType}, 'DISPATCHED',
+            #{wcsTaskId}, #{taskType}, 'DISPATCHING',
             #{eqpPalletId}, #{cycleNo}, #{palletId}, #{orderTaskId},
-            #{stationId}, #{shuttleId}, #{skuCode}, #{lotId}, #{qty},
-            #{taskMessageId}, #{ackMessageId}, #{ackResult},
-            #{dispatchedAt},
+            #{stationId}, #{skuCode}, #{lotId}, #{qty},
+            #{taskMessageId}, #{dispatchedAt},
             COALESCE(#{createdBy}, 'SYSTEM'), COALESCE(#{updatedBy}, 'SYSTEM')
         )
     </insert>
+
+    <!-- ACK 수락 — 배정된 셔틀·ACK 정보 반영 -->
+    <update id="markDispatched">
+        UPDATE biz.wcs_task_h
+        SET task_status    = 'DISPATCHED',
+            shuttle_id     = COALESCE(#{shuttleId}, shuttle_id),
+            ack_message_id = #{ackMessageId},
+            ack_result     = #{ackResult},
+            updated_at     = CURRENT_TIMESTAMP
+        WHERE wcs_task_id = #{wcsTaskId}
+          AND task_type   = #{taskType}
+    </update>
+
+    <!-- ACK 거부 — 본 처리는 롤백되더라도 이 이력은 별도 커밋으로 보존된다 -->
+    <update id="markRejected">
+        UPDATE biz.wcs_task_h
+        SET task_status    = 'REJECTED',
+            shuttle_id     = COALESCE(#{shuttleId}, shuttle_id),
+            ack_message_id = #{ackMessageId},
+            ack_result     = 'REJECTED',
+            fail_reason    = #{failReason},
+            updated_at     = CURRENT_TIMESTAMP
+        WHERE wcs_task_id = #{wcsTaskId}
+          AND task_type   = #{taskType}
+    </update>
+
+    <!-- 전송 자체 실패(예외·타임아웃) — RCS 수신 여부 불명. 조사 대상으로 남긴다 -->
+    <update id="markSendFailed">
+        UPDATE biz.wcs_task_h
+        SET task_status = 'FAILED',
+            fail_reason = #{failReason},
+            updated_at  = CURRENT_TIMESTAMP
+        WHERE wcs_task_id = #{wcsTaskId}
+          AND task_type   = #{taskType}
+    </update>
 
     <update id="markStarted">
         UPDATE biz.wcs_task_h

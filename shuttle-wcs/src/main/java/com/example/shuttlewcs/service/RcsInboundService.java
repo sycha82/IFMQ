@@ -144,12 +144,24 @@ public class RcsInboundService {
                 .expireDate(line.getExpireDate())
                 .build();
 
+        // 5. TASK 이력 선기록 — 전문 발송 "이전"에 별도 트랜잭션으로 커밋.
+        //    외부(RCS)에 공표할 wcsTaskId 는 공표 전에 내구화되어야 한다.
+        taskHistoryService.recordInboundPending(taskDto, map, line);
+
         rcsMsgLogService.logSend("INBOUND_TASK", taskDto.getMessageId(), taskDto.getRefMessageId(),
                 taskDto.getStationId(), taskDto.getEqpPalletId(), wcsTaskId, taskDto, taskDto.getResult());
         log.info("[RCS] INBOUND_TASK 발행 | wcsTaskId={} eqpPalletId={} itemCode={} qty={}",
                 wcsTaskId, map.getEqpPalletId(), line.getSkuCode(), line.getQty());
 
-        InboundTaskAckDto ack = rcsClient.sendInboundTask(taskDto);
+        InboundTaskAckDto ack;
+        try {
+            ack = rcsClient.sendInboundTask(taskDto);
+        } catch (RuntimeException e) {
+            // 전송 실패 — RCS 수신 여부 불명. 조사 대상으로 남기고 본 처리는 롤백
+            taskHistoryService.markSendFailed(TaskHistoryService.TYPE_INBOUND, wcsTaskId,
+                    "INBOUND_TASK 전송 실패: " + e.getMessage());
+            throw e;
+        }
 
         rcsMsgLogService.logReceive("INBOUND_TASK_ACK", ack.getMessageId(), ack.getRefMessageId(),
                 taskDto.getStationId(), taskDto.getEqpPalletId(), wcsTaskId, ack, ack.getResult());
@@ -157,14 +169,18 @@ public class RcsInboundService {
                 ack.getWcsTaskId(), ack.getResult(), ack.getShuttleId());
 
         if (!"ACCEPTED".equals(ack.getResult())) {
+            // 본 처리(스테이션 점유 등)는 롤백되지만, 거부 이력은 별도 커밋으로 보존된다
+            taskHistoryService.markRejected(TaskHistoryService.TYPE_INBOUND, wcsTaskId,
+                    ack.getShuttleId(), ack.getMessageId(), ack.getMessage());
             throw new RcsProtocolException("INBOUND_TASK 거부 | wcsTaskId=" + wcsTaskId
                     + " message=" + ack.getMessage());
         }
 
-        // 5. TASK 이력 적재 (사용자 조회용 — payload 없이 작업 단위로 확인)
-        taskHistoryService.recordInboundDispatched(taskDto, ack, map, line);
+        // 6. ACK 수락 반영 — 배정 셔틀 기록 (DISPATCHING → DISPATCHED)
+        taskHistoryService.markDispatched(TaskHistoryService.TYPE_INBOUND, wcsTaskId,
+                ack.getShuttleId(), ack.getMessageId(), ack.getResult());
 
-        // 6. eqpPallet 상태 전이 MAPPED → IN_PROGRESS
+        // 7. eqpPallet 상태 전이 MAPPED → IN_PROGRESS
         eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "IN_PROGRESS");
 
         eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()

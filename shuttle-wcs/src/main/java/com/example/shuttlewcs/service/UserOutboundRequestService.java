@@ -117,12 +117,24 @@ public class UserOutboundRequestService {
                 .destStation(destStation)
                 .build();
 
+        // TASK 이력 선기록 — 전문 발송 "이전"에 별도 트랜잭션으로 커밋.
+        // 외부(RCS)에 공표할 wcsTaskId 는 공표 전에 내구화되어야 한다.
+        taskHistoryService.recordOutboundPending(taskDto, map, line, order.getTaskId());
+
         rcsMsgLogService.logSend("OUTBOUND_TASK", taskDto.getMessageId(), null,
                 destStation, map.getEqpPalletId(), wcsTaskId, taskDto, null);
         log.info("[USER_OUT_REQ] OUTBOUND_TASK 발행 | wcsTaskId={} eqpPalletId={} palletId={} destStation={}",
                 wcsTaskId, map.getEqpPalletId(), line.getPalletId(), destStation);
 
-        OutboundTaskAckDto ack = rcsClient.sendOutboundTask(taskDto);
+        OutboundTaskAckDto ack;
+        try {
+            ack = rcsClient.sendOutboundTask(taskDto);
+        } catch (RuntimeException e) {
+            // 전송 실패 — RCS 수신 여부 불명. 조사 대상으로 남긴다
+            taskHistoryService.markSendFailed(TaskHistoryService.TYPE_OUTBOUND, wcsTaskId,
+                    "OUTBOUND_TASK 전송 실패: " + e.getMessage());
+            throw e;
+        }
 
         rcsMsgLogService.logReceive("OUTBOUND_TASK_ACK", ack.getMessageId(), ack.getRefMessageId(),
                 destStation, map.getEqpPalletId(), wcsTaskId, ack, ack.getResult());
@@ -130,13 +142,16 @@ public class UserOutboundRequestService {
                 ack.getWcsTaskId(), ack.getResult(), ack.getShuttleId());
 
         if (!"ACCEPTED".equals(ack.getResult())) {
+            taskHistoryService.markRejected(TaskHistoryService.TYPE_OUTBOUND, wcsTaskId,
+                    ack.getShuttleId(), ack.getMessageId(), ack.getMessage());
             log.warn("[USER_OUT_REQ] OUTBOUND_TASK 거부 | wcsTaskId={} message={}",
                     wcsTaskId, ack.getMessage());
             return false;
         }
 
-        // TASK 이력 적재 (사용자 조회용 — payload 없이 작업 단위로 확인)
-        taskHistoryService.recordOutboundDispatched(taskDto, ack, map, line, order.getTaskId());
+        // ACK 수락 반영 — 배정 셔틀 기록 (DISPATCHING → DISPATCHED)
+        taskHistoryService.markDispatched(TaskHistoryService.TYPE_OUTBOUND, wcsTaskId,
+                ack.getShuttleId(), ack.getMessageId(), ack.getResult());
 
         // 상태 전이: eqpPallet STORED → IN_PROGRESS (task 배정). location은 IN_RACK 유지 —
         // 팔렛이 실제 랙을 떠나는 OUTBOUNDING 전이는 설비 착수(OUTBOUND_START) 시점에 처리.

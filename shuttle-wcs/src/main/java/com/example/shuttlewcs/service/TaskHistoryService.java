@@ -1,8 +1,6 @@
 package com.example.shuttlewcs.service;
 
-import com.example.common.dto.InboundTaskAckDto;
 import com.example.common.dto.InboundTaskDto;
-import com.example.common.dto.OutboundTaskAckDto;
 import com.example.common.dto.OutboundTaskDto;
 import com.example.shuttlewcs.db.WcsEqpPalletMap;
 import com.example.shuttlewcs.db.WcsInboundOrderD;
@@ -13,15 +11,26 @@ import com.example.shuttlewcs.exception.RcsProtocolException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 셔틀 이동 작업(TASK) 이력 적재 서비스 — biz.wcs_task_h.
+ * 셔틀 이동 작업(TASK) 이력 서비스 — biz.wcs_task_h.
  *
  * wcs_shuttle_msg_log 가 전문(payload) 원본 이력이라면, 이 서비스는 "작업" 단위 요약 이력을 남긴다.
- * 사용자가 payload JSON을 뒤지지 않고도 작업 진행 상태(발행→착수→완료)를 조회할 수 있게 하는 것이 목적.
+ *
+ * <p><b>발행 이력은 본 처리와 분리된 트랜잭션(REQUIRES_NEW)으로 기록한다.</b>
+ * 이유:
+ * <ul>
+ *   <li>외부(RCS)에 공표할 wcsTaskId 는 전문 발송 <i>이전에</i> 내구화되어야 한다.
+ *       발송 후 기록하면, 전송~커밋 사이 장애 시 설비는 작업을 수행했는데 WCS에는
+ *       기록이 없는 물리-논리 괴리가 발생한다.</li>
+ *   <li>ACK 거부로 본 처리가 롤백되더라도 "시도했고 거부당했다"는 이력은 남아야 한다.
+ *       같은 트랜잭션에 묶으면 거부 이력이 통째로 사라진다.</li>
+ * </ul>
  */
 @Slf4j
 @Service
@@ -38,10 +47,12 @@ public class TaskHistoryService {
         return mapper.nextWcsTaskId();
     }
 
-    // INBOUND_TASK 발행(ACK 수락) 시점 적재
-    public void recordInboundDispatched(InboundTaskDto task, InboundTaskAckDto ack,
-                                        WcsEqpPalletMap map, WcsInboundOrderD line) {
-        mapper.insertDispatched(WcsTaskH.builder()
+    /**
+     * INBOUND_TASK 선기록 — 전문 발송 <b>이전</b>에 별도 트랜잭션으로 즉시 커밋(status=DISPATCHING).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordInboundPending(InboundTaskDto task, WcsEqpPalletMap map, WcsInboundOrderD line) {
+        mapper.insertPending(WcsTaskH.builder()
                 .wcsTaskId(task.getWcsTaskId())
                 .taskType(TYPE_INBOUND)
                 .eqpPalletId(map.getEqpPalletId())
@@ -49,25 +60,24 @@ public class TaskHistoryService {
                 .palletId(map.getPalletId())
                 .orderTaskId(map.getTaskId())
                 .stationId(task.getStationId())
-                .shuttleId(ack != null ? ack.getShuttleId() : null)
                 .skuCode(line != null ? line.getSkuCode() : null)
                 .lotId(line != null ? line.getLotId() : null)
                 .qty(line != null ? line.getQty() : null)
                 .taskMessageId(task.getMessageId())
-                .ackMessageId(ack != null ? ack.getMessageId() : null)
-                .ackResult(ack != null ? ack.getResult() : null)
                 .dispatchedAt(task.getTimestamp() != null ? task.getTimestamp() : LocalDateTime.now())
                 .build());
 
-        log.info("[TASK_HST] INBOUND TASK 이력 적재 | wcsTaskId={} eqpPalletId={} palletId={}",
+        log.info("[TASK_HST] INBOUND TASK 선기록(DISPATCHING) | wcsTaskId={} eqpPalletId={} palletId={}",
                 task.getWcsTaskId(), map.getEqpPalletId(), map.getPalletId());
     }
 
-    // OUTBOUND_TASK 발행(ACK 수락) 시점 적재
-    public void recordOutboundDispatched(OutboundTaskDto task, OutboundTaskAckDto ack,
-                                         WcsEqpPalletMap map, WcsOutboundOrderD line,
-                                         String orderTaskId) {
-        mapper.insertDispatched(WcsTaskH.builder()
+    /**
+     * OUTBOUND_TASK 선기록 — 전문 발송 <b>이전</b>에 별도 트랜잭션으로 즉시 커밋(status=DISPATCHING).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordOutboundPending(OutboundTaskDto task, WcsEqpPalletMap map,
+                                      WcsOutboundOrderD line, String orderTaskId) {
+        mapper.insertPending(WcsTaskH.builder()
                 .wcsTaskId(task.getWcsTaskId())
                 .taskType(TYPE_OUTBOUND)
                 .eqpPalletId(map.getEqpPalletId())
@@ -75,33 +85,53 @@ public class TaskHistoryService {
                 .palletId(map.getPalletId())
                 .orderTaskId(orderTaskId)
                 .stationId(task.getDestStation())
-                .shuttleId(ack != null ? ack.getShuttleId() : null)
                 .skuCode(line != null ? line.getSkuCode() : null)
                 .lotId(line != null ? line.getLotId() : null)
                 .qty(line != null ? line.getQty() : null)
                 .taskMessageId(task.getMessageId())
-                .ackMessageId(ack != null ? ack.getMessageId() : null)
-                .ackResult(ack != null ? ack.getResult() : null)
                 .dispatchedAt(task.getTimestamp() != null ? task.getTimestamp() : LocalDateTime.now())
                 .build());
 
-        log.info("[TASK_HST] OUTBOUND TASK 이력 적재 | wcsTaskId={} eqpPalletId={} palletId={}",
+        log.info("[TASK_HST] OUTBOUND TASK 선기록(DISPATCHING) | wcsTaskId={} eqpPalletId={} palletId={}",
                 task.getWcsTaskId(), map.getEqpPalletId(), map.getPalletId());
     }
 
-    // 설비 착수(INBOUND_START · OUTBOUND_START)
+    // ACK 수락 → DISPATCHED (별도 트랜잭션)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markDispatched(String taskType, String wcsTaskId, String shuttleId,
+                               String ackMessageId, String ackResult) {
+        int updated = mapper.markDispatched(wcsTaskId, taskType, shuttleId, ackMessageId, ackResult);
+        warnIfMissing(updated, taskType, wcsTaskId, "DISPATCHED");
+    }
+
+    // ACK 거부 → REJECTED. 본 처리가 롤백돼도 이 이력은 남는다 (별도 트랜잭션)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markRejected(String taskType, String wcsTaskId, String shuttleId,
+                             String ackMessageId, String failReason) {
+        int updated = mapper.markRejected(wcsTaskId, taskType, shuttleId, ackMessageId, failReason);
+        warnIfMissing(updated, taskType, wcsTaskId, "REJECTED");
+    }
+
+    // 전송 실패(예외·타임아웃) → FAILED. RCS 수신 여부 불명 (별도 트랜잭션)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markSendFailed(String taskType, String wcsTaskId, String failReason) {
+        int updated = mapper.markSendFailed(wcsTaskId, taskType, failReason);
+        warnIfMissing(updated, taskType, wcsTaskId, "FAILED");
+    }
+
+    // 설비 착수(INBOUND_START · OUTBOUND_START) — 이벤트 처리 트랜잭션에 동참
     public void markStarted(String taskType, String wcsTaskId, String shuttleId, LocalDateTime at) {
         int updated = mapper.markStarted(wcsTaskId, taskType, shuttleId, at);
         warnIfMissing(updated, taskType, wcsTaskId, "STARTED");
     }
 
-    // 완료(INBOUND_DONE · OUTBOUND_DONE)
+    // 완료(INBOUND_DONE · OUTBOUND_DONE) — 이벤트 처리 트랜잭션에 동참
     public void markCompleted(String taskType, String wcsTaskId, String shuttleId, LocalDateTime at) {
         int updated = mapper.markCompleted(wcsTaskId, taskType, shuttleId, at);
         warnIfMissing(updated, taskType, wcsTaskId, "COMPLETED");
     }
 
-    // 실패 보고(DONE status != COMPLETED)
+    // 실패 보고(DONE status != COMPLETED) — 이벤트 처리 트랜잭션에 동참
     public void markFailed(String taskType, String wcsTaskId, String shuttleId,
                            String failReason, LocalDateTime at) {
         int updated = mapper.markFailed(wcsTaskId, taskType, shuttleId, failReason, at);
