@@ -105,8 +105,9 @@
   <section class="card">
     <h2>재고 (가용재고 뷰)</h2>
     <div class="scroll"><table>
-      <thead><tr><th>품목</th><th>위치</th><th>팔렛</th><th>로트</th>
-        <th class="num">보유</th><th class="num">예약</th><th class="num">가용</th></tr></thead>
+      <thead><tr><th>품목</th><th>위치</th>
+        <th class="num">보유</th><th class="num">예약</th><th class="num">가용</th>
+        <th>팔렛</th><th>로트</th></tr></thead>
       <tbody id="t-inv"></tbody>
     </table></div>
   </section>
@@ -230,10 +231,10 @@ async function refresh(){
 
     fill($('t-inv'), d.inventory, 7, i => `<tr>
       <td>${esc(i.skuCode)}</td><td>${esc(i.locationId)}</td>
-      <td>${dash(i.palletId)}</td><td>${dash(i.lotId)}</td>
       <td class="num">${i.quantity}</td>
       <td class="num">${i.reservedQty>0?`<span class="tag t-wait">${i.reservedQty}</span>`:0}</td>
       <td class="num">${i.availableQty}</td>
+      <td>${dash(i.palletId)}</td><td>${dash(i.lotId)}</td>
     </tr>`);
 
     fill($('t-pallet'), d.pallets, 6, p => `<tr>
