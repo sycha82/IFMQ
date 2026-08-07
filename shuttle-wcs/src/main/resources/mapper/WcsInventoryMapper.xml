@@ -5,29 +5,33 @@
 <mapper namespace="com.example.shuttlewcs.db.WcsInventoryMapper">
 
     <resultMap id="rs" type="com.example.shuttlewcs.db.WcsInventory">
-        <id     property="sku"         column="sku"/>
+        <id     property="skuCode"     column="sku_code"/>
         <id     property="locationId"  column="location_id"/>
         <result property="quantity"    column="quantity"/>
         <result property="reservedQty" column="reserved_qty"/>
         <result property="uom"         column="uom"/>
+        <result property="palletId"    column="pallet_id"/>
+        <result property="lotId"       column="lot_id"/>
         <result property="updatedAt"   column="updated_at"/>
     </resultMap>
 
     <select id="findByPk" resultMap="rs">
         SELECT * FROM biz.wcs_inventory
-        WHERE sku = #{sku} AND location_id = #{locationId}
+        WHERE sku_code = #{skuCode} AND location_id = #{locationId}
     </select>
 
     <select id="countAll" resultType="int">
         SELECT COUNT(1) FROM biz.wcs_inventory
     </select>
 
-    <!-- INBOUND_DONE 재고 누적 — 최초면 insert, 있으면 수량 가산 -->
+    <!-- INBOUND_DONE 재고 누적 — 최초면 insert, 있으면 수량 가산 (pallet_id·lot_id 는 최신값으로 갱신) -->
     <insert id="upsertAdd">
-        INSERT INTO biz.wcs_inventory (sku, location_id, quantity, uom)
-        VALUES (#{sku}, #{locationId}, #{qty}, COALESCE(#{uom}, 'EA'))
-        ON CONFLICT (sku, location_id) DO UPDATE SET
+        INSERT INTO biz.wcs_inventory (sku_code, location_id, quantity, uom, pallet_id, lot_id)
+        VALUES (#{skuCode}, #{locationId}, #{qty}, COALESCE(#{uom}, 'EA'), #{palletId}, #{lotId})
+        ON CONFLICT (sku_code, location_id) DO UPDATE SET
             quantity   = biz.wcs_inventory.quantity + EXCLUDED.quantity,
+            pallet_id  = EXCLUDED.pallet_id,
+            lot_id     = EXCLUDED.lot_id,
             updated_at = CURRENT_TIMESTAMP
     </insert>
 
@@ -58,19 +62,21 @@
 
     <!-- 모니터링 조회 — 가용재고 뷰 -->
     <resultMap id="rsAvail" type="com.example.shuttlewcs.db.WcsAvailableInventory">
-        <result property="sku"          column="sku"/>
+        <result property="skuCode"      column="sku_code"/>
         <result property="locationId"   column="location_id"/>
         <result property="quantity"     column="quantity"/>
         <result property="reservedQty"  column="reserved_qty"/>
         <result property="availableQty" column="available_qty"/>
         <result property="uom"          column="uom"/>
+        <result property="palletId"     column="pallet_id"/>
+        <result property="lotId"        column="lot_id"/>
         <result property="updatedAt"    column="updated_at"/>
     </resultMap>
 
     <select id="findAllAvailable" resultMap="rsAvail">
-        SELECT sku, location_id, quantity, reserved_qty, available_qty, uom, updated_at
+        SELECT sku_code, location_id, quantity, reserved_qty, available_qty, uom, pallet_id, lot_id, updated_at
           FROM biz.wcs_vw_available_inventory
-        ORDER BY sku, location_id
+        ORDER BY sku_code, location_id
     </select>
 
 </mapper>

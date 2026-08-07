@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface WcsInventoryMapper {
 
-    WcsInventory findByPk(@Param("sku") String sku,
+    WcsInventory findByPk(@Param("skuCode") String skuCode,
                           @Param("locationId") String locationId);
 
     int countAll();
@@ -15,11 +15,13 @@ public interface WcsInventoryMapper {
     // 모니터링 조회 — 가용재고 뷰(biz.wcs_vw_available_inventory)
     List<WcsAvailableInventory> findAllAvailable();
 
-    // INBOUND_DONE 시 재고 누적 — (sku, location_id) upsert, 수량 가산
-    void upsertAdd(@Param("sku") String sku,
+    // INBOUND_DONE 시 재고 누적 — (sku_code, location_id) upsert, 수량 가산
+    void upsertAdd(@Param("skuCode") String skuCode,
                    @Param("locationId") String locationId,
                    @Param("qty") Integer qty,
-                   @Param("uom") String uom);
+                   @Param("uom") String uom,
+                   @Param("palletId") String palletId,
+                   @Param("lotId") String lotId);
 
     // OUTBOUND_CMD 할당 시 팔렛 전체 예약 — 미예약 상태에서만 reserved_qty=quantity 로 설정
     int reserveByLocation(@Param("locationId") String locationId);

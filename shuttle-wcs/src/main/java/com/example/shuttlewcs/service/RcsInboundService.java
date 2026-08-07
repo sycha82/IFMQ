@@ -235,7 +235,8 @@ public class RcsInboundService {
 
         List<WcsInboundOrderD> lines = orderDMapper.findActiveByPalletId(map.getPalletId());
         for (WcsInboundOrderD line : lines) {
-            inventoryMapper.upsertAdd(line.getSkuCode(), map.getEqpPalletId(), line.getQty(), "EA");
+            inventoryMapper.upsertAdd(line.getSkuCode(), map.getEqpPalletId(), line.getQty(), "EA",
+                    map.getPalletId(), line.getLotId());
         }
 
         eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
