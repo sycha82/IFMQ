@@ -262,12 +262,12 @@ COMMENT ON COLUMN biz.wcs_shuttle_msg_log.result         IS '응답류 로그의
 CREATE TABLE IF NOT EXISTS biz.wcs_inventory (
     sku_code     VARCHAR(64)  NOT NULL,
     location_id  VARCHAR(64)  NOT NULL,
-    quantity     INT8         NOT NULL DEFAULT 0,
-    reserved_qty INT8         NOT NULL DEFAULT 0,
-    uom          VARCHAR(16)  NOT NULL DEFAULT 'EA',
-    updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    pallet_id    VARCHAR(30)  NULL,
+    pallet_id    VARCHAR(30)  NOT NULL,
     lot_id       VARCHAR(30)  NULL,
+    quantity     INT8         NOT NULL DEFAULT 0,
+    uom          VARCHAR(16)  NOT NULL DEFAULT 'EA',
+    reserved_qty INT8         NOT NULL DEFAULT 0,
+    updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT wcs_inventory_pkey PRIMARY KEY (sku_code, location_id),
     CONSTRAINT ck_biz_wcs_inventory_quantity_nonneg CHECK (quantity >= 0),
     CONSTRAINT ck_wcs_inventory_reserved CHECK (reserved_qty >= 0 AND reserved_qty <= quantity)
@@ -282,13 +282,14 @@ COMMENT ON COLUMN biz.wcs_inventory.location_id  IS '재고 위치 — 현재는
 COMMENT ON COLUMN biz.wcs_inventory.quantity     IS 'on-hand 수량 (랙 물리 재고, 0 이상)';
 COMMENT ON COLUMN biz.wcs_inventory.reserved_qty IS '예약 수량 — OUTBOUND_CMD 할당 시 팔렛 전체 예약. available = quantity - reserved_qty';
 COMMENT ON COLUMN biz.wcs_inventory.uom          IS '수량 단위 (기본 EA)';
-COMMENT ON COLUMN biz.wcs_inventory.pallet_id    IS 'WMS 운영 PalletId — eqp_pallet_id(location_id)에 매핑된 값 (표시·추적용)';
-COMMENT ON COLUMN biz.wcs_inventory.lot_id       IS '로트 번호 (표시·추적용)';
+COMMENT ON COLUMN biz.wcs_inventory.pallet_id    IS 'WMS 운영 PalletId — eqp_pallet_id(location_id)에 매핑된 값. 재고 적재 시 항상 확정되므로 NOT NULL';
+COMMENT ON COLUMN biz.wcs_inventory.lot_id       IS '로트 번호 (lot 미관리 품목은 NULL)';
 
 -- 가용 재고 뷰 — available = on-hand - reserved
 CREATE OR REPLACE VIEW biz.wcs_vw_available_inventory AS
-    SELECT sku_code, location_id, quantity, reserved_qty,
-           (quantity - reserved_qty) AS available_qty, uom, pallet_id, lot_id, updated_at
+    SELECT sku_code, location_id, pallet_id, lot_id,
+           quantity, uom, reserved_qty,
+           (quantity - reserved_qty) AS available_qty, updated_at
     FROM biz.wcs_inventory;
 
 COMMENT ON VIEW biz.wcs_vw_available_inventory IS '가용 재고 — quantity(on-hand) - reserved_qty(예약)';

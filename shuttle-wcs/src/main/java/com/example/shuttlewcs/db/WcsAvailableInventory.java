@@ -18,11 +18,11 @@ public class WcsAvailableInventory {
 
     private String skuCode;
     private String locationId;      // eqp_pallet_id
-    private Long quantity;          // on-hand
-    private Long reservedQty;       // 예약
-    private Long availableQty;      // quantity - reservedQty
-    private String uom;
     private String palletId;        // WMS 운영 PalletId
     private String lotId;
+    private Long quantity;          // on-hand
+    private String uom;
+    private Long reservedQty;       // 예약
+    private Long availableQty;      // quantity - reservedQty
     private LocalDateTime updatedAt;
 }

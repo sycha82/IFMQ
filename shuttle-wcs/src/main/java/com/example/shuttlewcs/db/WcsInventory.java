@@ -18,10 +18,10 @@ public class WcsInventory {
 
     private String skuCode;            // PK
     private String locationId;         // PK (eqp_pallet_id)
+    private String palletId;           // WMS 운영 PalletId (NOT NULL)
+    private String lotId;              // 로트 번호 (lot 미관리 품목은 NULL)
     private Long quantity;             // on-hand (랙 물리 재고)
-    private Long reservedQty;          // 예약 수량 (available = quantity - reservedQty)
     private String uom;
-    private String palletId;           // WMS 운영 PalletId (표시·추적용)
-    private String lotId;              // 로트 번호 (표시·추적용)
+    private Long reservedQty;          // 예약 수량 (available = quantity - reservedQty)
     private LocalDateTime updatedAt;
 }
