@@ -41,10 +41,16 @@ status(RECEIVED→PROCESSING→COMPLETED / FAILED). 멱등키 `(direction, messa
 ## 상태 모델
 
 ```
-eqp_pallet_map.map_status : EMPTY → MAPPED → IN_PROGRESS → STORED → (출고) IN_PROGRESS → OUTBOUND
+eqp_pallet_map.map_status : EMPTY → MAPPED → IN_PROGRESS → STARTED → STORED
+                             → (출고) IN_PROGRESS → STARTED → OUTBOUND
 eqp_pallet_map.location   : IDLE → STATION → IN_RACK → OUTBOUNDING → PICKING_ZONE
-  · 출고: OUTBOUND_TASK 는 map_status만 IN_PROGRESS(location IN_RACK 유지),
-    OUTBOUND_START(설비 착수) 시 location IN_RACK→OUTBOUNDING, OUTBOUND_DONE 시 →PICKING_ZONE
+  · 입고: INBOUND_TASK 는 map_status IN_PROGRESS(location STATION 유지),
+    INBOUND_START(설비 착수) 시 map_status→STARTED(스테이션 해제, location은 STATION 유지),
+    INBOUND_DONE 시 map_status→STORED, location→IN_RACK
+  · 출고: OUTBOUND_TASK 는 map_status IN_PROGRESS(location IN_RACK 유지),
+    OUTBOUND_START(설비 착수) 시 map_status→STARTED, location IN_RACK→OUTBOUNDING,
+    OUTBOUND_DONE 시 map_status→OUTBOUND, location→PICKING_ZONE
+  · STARTED는 "설비가 착수해 팔렛이 물리적으로 이동 중"임을 나타내는 공통 상태로 입출고 대칭이다
 wcs_station.status        : AVAILABLE ↔ BUSY (BCR_READ 점유 / INBOUND_START 해제)
 outbound_order_h.cmd_status : RECEIVED → DISPATCHED → COMPLETED
 재고 : INBOUND_DONE 적재(+) / OUTBOUND_CMD 예약(reserved_qty=quantity)

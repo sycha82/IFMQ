@@ -5,12 +5,14 @@
 WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(H/D 저장, 중복 409)
 → [PRE03] POST /api/mapping (EqpPalletId↔PalletId 매핑, pallet_line_h 생성)
 → RCS BCR_READ → 스테이션 점유(BUSY) → INBOUND_TASK/ACK 자동 발행 (MAPPED→IN_PROGRESS)
-→ RCS INBOUND_START → 스테이션 해제(BUSY→AVAILABLE, 팔렛이 셔틀에 실려 스테이션 이탈)
-→ RCS INBOUND_DONE → STORED/IN_RACK 전이 + 재고 적재
+→ RCS INBOUND_START → 검증(IN_PROGRESS) → map_status→STARTED + 스테이션 해제(BUSY→AVAILABLE, 팔렛이 셔틀에 실려 스테이션 이탈)
+→ RCS INBOUND_DONE → 검증(STARTED) → STORED/IN_RACK 전이 + 재고 적재
 → INBOUND_COMPLETE 자동 통보 (shuttle-wcs → wcs-app → MQ → WMS)
 ```
 - 스테이션 해제는 **INBOUND_START(착수) 시점**. INBOUND_DONE은 재고 적재만 담당.
   INBOUND_START를 건너뛰면 스테이션이 BUSY로 남아 다음 팔렛 BCR_READ가 거부됨.
+- map_status는 **STARTED(착수) 시점**에 IN_PROGRESS→STARTED 로 전이(출고 OUTBOUND_START 와 대칭).
+  INBOUND_START를 건너뛰면 IN_PROGRESS로 남아 INBOUND_DONE 검증(STARTED 요구)에서 거부됨.
 
 ## 출고 (c3 · Case A: WMS가 PalletId 지정, 외부 피킹존)
 ```
@@ -25,13 +27,13 @@ WMS INBOUND_CMD(MQ) → wcs-app if_msg_log 멱등 적재 → shuttle-wcs 위임(
         성공 라인: STORED→IN_PROGRESS (location IN_RACK 유지) / 전 라인 성공 시 H→DISPATCHED
         스킵(best-effort): 매핑 미존재·REJECTED 라인은 건너뛰고 계속
 [START] RCS OUTBOUND_START(설비 착수, rcs-mock CLI 7번 수동) → 검증(wcsTaskId·IN_PROGRESS/IN_RACK)
-        → location IN_RACK→OUTBOUNDING (팔렛이 실제 랙을 떠남). map_status는 IN_PROGRESS 유지
-[05/06] RCS OUTBOUND_DONE(rcs-mock CLI 5번 수동) → 검증(wcsTaskId·IN_PROGRESS/OUTBOUNDING)
+        → map_status IN_PROGRESS→STARTED, location IN_RACK→OUTBOUNDING (팔렛이 실제 랙을 떠남)
+[05/06] RCS OUTBOUND_DONE(rcs-mock CLI 5번 수동) → 검증(wcsTaskId·STARTED/OUTBOUNDING)
         → OUTBOUND/PICKING_ZONE 전이 + 랙 재고 삭제 + D 완료·task 전체 완료 시 H→COMPLETED
         → OUTBOUND_DONE_ACK 회신
 ```
-- OUTBOUNDING 전이는 **OUTBOUND_START(착수) 시점**(입고 INBOUND_START 대칭). OUTBOUND_TASK는 IN_PROGRESS만.
-  OUTBOUND_START를 건너뛰면 location=IN_RACK로 남아 OUTBOUND_DONE 검증(OUTBOUNDING 요구)에서 거부됨.
+- STARTED/OUTBOUNDING 전이는 **OUTBOUND_START(착수) 시점**(입고 INBOUND_START 대칭). OUTBOUND_TASK는 IN_PROGRESS만.
+  OUTBOUND_START를 건너뛰면 IN_PROGRESS/IN_RACK로 남아 OUTBOUND_DONE 검증(STARTED/OUTBOUNDING 요구)에서 거부됨.
 
 ## 설비 자동 시뮬레이션 (rcs-mock)
 `rcs.auto-simulation.enabled=true`(기본) 이면 rcs-mock 이 **TASK 수신 시점**에 START/DONE 을

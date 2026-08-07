@@ -65,6 +65,11 @@ public class RcsInboundService {
     public void receiveInboundStart(InboundStartDto dto) {
         LocalDateTime now = dto.getTimestamp() != null ? dto.getTimestamp() : LocalDateTime.now();
 
+        WcsEqpPalletMap map = eqpPalletMapMapper.findById(dto.getEqpPalletId());
+        if (map == null) {
+            throw new RcsProtocolException("미등록 eqpPallet | eqpPalletId=" + dto.getEqpPalletId());
+        }
+
         rcsMsgLogService.logReceive("INBOUND_START", dto.getMessageId(), dto.getRefMessageId(),
                 dto.getStationId(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto, null);
 
@@ -72,14 +77,37 @@ public class RcsInboundService {
         taskHistoryService.requireTask(TaskHistoryService.TYPE_INBOUND,
                 dto.getWcsTaskId(), dto.getEqpPalletId());
 
+        // TASK 발행분(IN_PROGRESS)만 착수 가능
+        if (!"IN_PROGRESS".equals(map.getMapStatus())) {
+            throw new RcsProtocolException("입고 착수 가능 상태(IN_PROGRESS) 아님 | eqpPalletId="
+                    + dto.getEqpPalletId() + " mapStatus=" + map.getMapStatus());
+        }
+
         // 셔틀이 팔렛을 집어 스테이션을 떠남 → 점유 해제 BUSY → AVAILABLE
         stationMapper.freeByEqpPallet(dto.getEqpPalletId(), now);
+
+        // 팔렛 상태 전이 IN_PROGRESS → STARTED (설비 착수) — 출고 OUTBOUND_START 와 대칭
+        eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "STARTED");
+
+        eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
+                .eqpPalletId(map.getEqpPalletId())
+                .cycleNo(map.getCycleNo())
+                .taskId(map.getTaskId())
+                .palletId(map.getPalletId())
+                .mapStatus("STARTED")
+                .location("STATION")
+                .mappedAt(map.getMappedAt())
+                .eventType("INBOUND_START")
+                .eventAt(now)
+                .eventBy("RCS")
+                .note("wcsTaskId=" + dto.getWcsTaskId() + " shuttleId=" + dto.getShuttleId())
+                .build());
 
         // TASK 이력 · 착수 반영
         taskHistoryService.markStarted(TaskHistoryService.TYPE_INBOUND,
                 dto.getWcsTaskId(), dto.getShuttleId(), now);
 
-        log.info("[RCS] INBOUND_START 수신 · 스테이션 해제 | stationId={} eqpPalletId={} wcsTaskId={} shuttleId={}",
+        log.info("[RCS] INBOUND_START 수신 · 스테이션 해제(STARTED) | stationId={} eqpPalletId={} wcsTaskId={} shuttleId={}",
                 dto.getStationId(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto.getShuttleId());
     }
 
@@ -211,8 +239,8 @@ public class RcsInboundService {
         // wcsTaskId 는 독립 채번이므로 작업 이력 조회로 검증 (존재·방향·설비파레트 일치)
         taskHistoryService.requireTask(TaskHistoryService.TYPE_INBOUND,
                 dto.getWcsTaskId(), dto.getEqpPalletId());
-        if (!"IN_PROGRESS".equals(map.getMapStatus())) {
-            throw new RcsProtocolException("진행중(IN_PROGRESS) 상태 아님 | eqpPalletId="
+        if (!"STARTED".equals(map.getMapStatus())) {
+            throw new RcsProtocolException("착수(STARTED) 상태 아님 | eqpPalletId="
                     + dto.getEqpPalletId() + " mapStatus=" + map.getMapStatus());
         }
 

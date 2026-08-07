@@ -38,7 +38,8 @@ public class RcsOutboundService {
 
     /**
      * OUTBOUND_START — 설비 출고 착수 통보 수신.
-     * 셔틀이 랙에서 팔렛을 집어 출고를 물리적으로 시작한 시점 → location IN_RACK → OUTBOUNDING 전이.
+     * 셔틀이 랙에서 팔렛을 집어 출고를 물리적으로 시작한 시점 →
+     * map_status IN_PROGRESS→STARTED, location IN_RACK→OUTBOUNDING 전이.
      * (OUTBOUND_TASK는 STORED→IN_PROGRESS까지만, 실제 랙 이탈은 이 시점)
      */
     @Transactional
@@ -61,7 +62,8 @@ public class RcsOutboundService {
         rcsMsgLogService.logReceive("OUTBOUND_START", dto.getMessageId(), dto.getRefMessageId(),
                 dto.getDestStation(), dto.getEqpPalletId(), dto.getWcsTaskId(), dto, null);
 
-        // 팔렛이 랙을 떠남 → location IN_RACK → OUTBOUNDING (map_status는 IN_PROGRESS 유지)
+        // 팔렛이 랙을 떠남 → map_status IN_PROGRESS → STARTED, location IN_RACK → OUTBOUNDING
+        eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "STARTED");
         eqpPalletMapMapper.updateLocation(map.getEqpPalletId(), "OUTBOUNDING");
 
         eqpPalletMapHMapper.insert(WcsEqpPalletMapH.builder()
@@ -69,7 +71,7 @@ public class RcsOutboundService {
                 .cycleNo(map.getCycleNo())
                 .taskId(map.getTaskId())
                 .palletId(map.getPalletId())
-                .mapStatus("IN_PROGRESS")
+                .mapStatus("STARTED")
                 .location("OUTBOUNDING")
                 .mappedAt(map.getMappedAt())
                 .eventType("OUTBOUND_START")
@@ -83,7 +85,7 @@ public class RcsOutboundService {
         taskHistoryService.markStarted(TaskHistoryService.TYPE_OUTBOUND,
                 dto.getWcsTaskId(), dto.getShuttleId(), now);
 
-        log.info("[RCS] OUTBOUND_START 수신 · 랙 이탈(OUTBOUNDING) | wcsTaskId={} eqpPalletId={} shuttleId={}",
+        log.info("[RCS] OUTBOUND_START 수신 · 랙 이탈(STARTED/OUTBOUNDING) | wcsTaskId={} eqpPalletId={} shuttleId={}",
                 dto.getWcsTaskId(), dto.getEqpPalletId(), dto.getShuttleId());
     }
 
@@ -104,9 +106,9 @@ public class RcsOutboundService {
         // wcsTaskId 는 독립 채번이므로 작업 이력 조회로 검증 (존재·방향·설비파레트 일치)
         taskHistoryService.requireTask(TaskHistoryService.TYPE_OUTBOUND,
                 dto.getWcsTaskId(), dto.getEqpPalletId());
-        // 출고 진행중 상태(OUTBOUND_START 착수분)만 완료 처리 — 입고 IN_PROGRESS와 location으로 구분
-        if (!"IN_PROGRESS".equals(map.getMapStatus()) || !"OUTBOUNDING".equals(map.getLocation())) {
-            throw new RcsProtocolException("출고 진행중(IN_PROGRESS/OUTBOUNDING) 상태 아님 | eqpPalletId="
+        // 출고 착수분(OUTBOUND_START 완료)만 완료 처리
+        if (!"STARTED".equals(map.getMapStatus()) || !"OUTBOUNDING".equals(map.getLocation())) {
+            throw new RcsProtocolException("출고 착수(STARTED/OUTBOUNDING) 상태 아님 | eqpPalletId="
                     + dto.getEqpPalletId() + " mapStatus=" + map.getMapStatus() + " location=" + map.getLocation());
         }
 
@@ -126,7 +128,7 @@ public class RcsOutboundService {
         List<WcsOutboundOrderD> lines = orderDMapper.findActiveByPalletId(map.getPalletId());
         orderDMapper.updateCompletedByPalletId(map.getPalletId(), now);
 
-        eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "OUTBOUND");        // IN_PROGRESS → OUTBOUND
+        eqpPalletMapMapper.updateStatus(map.getEqpPalletId(), "OUTBOUND");        // STARTED → OUTBOUND
         eqpPalletMapMapper.updateLocation(map.getEqpPalletId(), "PICKING_ZONE");  // OUTBOUNDING → PICKING_ZONE
 
         // 랙 재고 소멸 — 팔렛이 물리적으로 배출됨 (예약분 포함 해당 위치 재고 전체 삭제)

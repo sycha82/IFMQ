@@ -169,7 +169,7 @@ const TASK_TAG = { DISPATCHING:'t-wait', DISPATCHED:'t-run', STARTED:'t-run',
                    COMPLETED:'t-ok', REJECTED:'t-bad', FAILED:'t-bad' };
 const STATION_TAG = { AVAILABLE:'t-ok', BUSY:'t-busy', DOWN:'t-bad' };
 const MAP_TAG = { EMPTY:'t-idle', MAPPED:'t-wait', IN_PROGRESS:'t-run',
-                  STORED:'t-ok', OUTBOUND:'t-busy' };
+                  STARTED:'t-busy', STORED:'t-ok', OUTBOUND:'t-ok' };
 const ORDER_TAG = { RECEIVED:'t-wait', DISPATCHED:'t-run', COMPLETED:'t-ok' };
 const MSG_TAG = { RECEIVED:'t-wait', PROCESSING:'t-run', COMPLETED:'t-ok', FAILED:'t-bad',
                   ACCEPTED:'t-ok', OK:'t-ok', REJECTED:'t-bad' };
